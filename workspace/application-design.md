@@ -1,0 +1,595 @@
+# Project Management Application — Design Specification
+
+> This document expands and formalizes [`application-details.md`](./application-details.md).
+> Where that file captures the initial vision, this one is the **canonical design reference**:
+> the design principles, the complete data model, the interaction rules, and the architectural
+> decisions that drive implementation. When the two disagree, this document wins; when this
+> document is silent, fall back to the vision in `application-details.md` and to the coding
+> standards in `mean-stack-project-setup/references/project-standards.md`.
+
+---
+
+## 1. Purpose (The Prime Directive)
+
+> **This application provides visually interactive task management focused on the user's spatial
+> awareness and spatial memory to help organize information. It strives to enable strong strategies
+> for grouping and categorizing task-based information.**
+
+Every other rule in this document exists to serve that sentence. When a design choice is ambiguous,
+resolve it in favor of (a) preserving the user's spatial arrangement and (b) keeping grouping
+mechanisms open-ended and easy to extend.
+
+---
+
+## 2. Top-Level Design Principles
+
+These are the hierarchical, app-specific rules that govern all architecture and feature work. They
+are numbered so other documents and code comments can reference them (e.g. "per **P2**").
+
+### P0 — Purpose is the highest authority
+The prime directive in §1 outranks every other principle. A feature that improves spatial memory or
+grouping power is worth complexity; a feature that does neither is suspect.
+
+### P1 — Spatial primacy
+Position and arrangement **carry meaning**. The application must preserve the exact arrangement the
+user creates and **never auto-rearrange, auto-layout, or "tidy"** items. Position, size, and stacking
+order are first-class data, persisted with the item. Returning to a canvas restores it exactly as it
+was left — including pan and zoom (see §8.4).
+
+### P2 — Recursive uniformity (fractal design)
+A Task's canvas behaves **identically** to a Project's canvas. The same components, services, and
+interactions apply at every depth. "If it works at one level, it works at all levels." This is the
+strongest driver of code reuse in the app: there is one canvas implementation, not a project canvas
+and a separate task canvas.
+
+### P3 — Container / Item duality
+Three structural roles define what may own what:
+
+| Role            | Has a position in a parent canvas? | Hosts a canvas of children? | Types         |
+| --------------- | ---------------------------------- | --------------------------- | ------------- |
+| **Canvas Host** | —                                  | yes                         | Project, Task |
+| **Layout Item** | yes                                | —                           | Task, Note    |
+| **Both**        | yes                                | yes                         | **Task**      |
+
+A **Project** is a Canvas Host only (the root canvas; it never sits inside anything).
+A **Note** is a Layout Item only (it can be placed and moved, but never owns children).
+A **Task** is both — a card inside its parent's canvas *and* a canvas for its own children.
+
+### P4 — Load before show
+A component does not render its primary content until the data backing it has fully resolved.
+Loading/readiness is expressed through observables; use them to drive spinners, skeletons, and gates.
+
+### P5 — One source of truth per concern
+- **Application/UI state** lives in Angular services, exposed as observables. Components subscribe; they do not own non-trivial state.
+- **Persistent data** lives in MongoDB as **plain data** — no observables, no class instances, no logic in stored shapes (see **P-RXJS**).
+- **Navigation position** is owned by the **URL**. The breadcrumb and current canvas derive from the route, not from in-memory flags.
+
+### P6 — Confirm, then commit permanently
+Every destructive action is gated by a confirmation dialog. Once confirmed, deletes are **hard,
+permanent, and cascading** (a delete removes all descendants — see §6.3). There is no soft-delete or
+undo in the initial design.
+
+### P7 — Built for expansion
+New ways to group, categorize, and organize tasks and notes are **expected**. Core types carry stable
+identifiers and structural metadata (see §5) so new grouping concepts can be layered on **without
+reshaping existing data**. Prefer abstraction and purpose-built services over inline, one-off logic.
+
+### P8 — Consistent presentation
+Styling is centralized in design tokens (§9) and applied uniformly — including the elements that are
+easy to forget, such as dialogs, drop-downs, and other overlays. Every PrimeNG component with an
+`appendTo` property is set to `appendTo="body"`.
+
+---
+
+## 3. Glossary
+
+| Term             | Meaning                                                                                  |
+| ---------------- | ---------------------------------------------------------------------------------------- |
+| **Canvas**       | The pannable, zoomable surface on which items are arranged. Belongs to a Canvas Host.    |
+| **Canvas Host**  | An entity that owns a canvas: a Project or a Task.                                       |
+| **Item / Card**  | A positioned rectangle on a canvas: a Task or a Note.                                    |
+| **Drill in**     | Double-clicking a Task to navigate into that Task's own canvas.                          |
+| **Selection**    | The single item (or host) whose properties are shown in the Details Pane.                |
+| **Details Pane** | The right-hand editor panel reflecting the current selection.                            |
+| **Breadcrumb**   | The navigable trail (Project → Task → Task …) derived from the URL.                      |
+| **Canvas-space** | The coordinate system in which item positions/sizes are stored, independent of zoom/pan. |
+| **Screen-space** | Pixel coordinates in the browser viewport, after the canvas transform is applied.        |
+| **View state**   | A canvas's saved pan offset and zoom level.                                              |
+
+---
+
+## 4. Conceptual Model Overview
+
+```
+Project  (root canvas host)
+ ├── Task        (item on the project canvas; also a canvas host)
+ │    ├── Task   (item on the parent task's canvas; also a canvas host)
+ │    │    └── … recursively, indefinitely
+ │    └── Note   (item on the parent task's canvas; leaf)
+ └── Note        (item on the project canvas; leaf)
+```
+
+- A Task's **owner** is always a Project. A Task **optionally** has a parent Task.
+  - No parent Task → the Task lives directly on the Project's canvas.
+  - Has a parent Task → the Task lives on that parent Task's canvas.
+- A Note follows the same placement rule (owned by a Project, optionally on a parent Task's canvas)
+  but can never own children.
+
+---
+
+## 5. Data Model
+
+All persisted shapes are **interfaces** (no classes, no observables — **P5**, **P-RXJS**). They live
+in `src/model/shared-models/` and are kept identical on client and server (server is source of truth).
+`ObjectId` is imported from `mongodb` (a real type on the server; aliased to `string` in the browser).
+
+### 5.1 Base entity
+
+```typescript
+import { ObjectId } from 'mongodb';
+
+/** Fields common to every persisted entity. */
+export interface DbEntity {
+    /** Primary key. */
+    _id: ObjectId;
+    /** Creation timestamp (UTC). */
+    createdAt: Date;
+    /** Last-modification timestamp (UTC). */
+    updatedAt: Date;
+}
+```
+
+### 5.2 Layout (embedded value type)
+
+`Layout` is **not** a collection; it is embedded in each Layout Item.
+
+```typescript
+/** Position and size of an item within its parent canvas, in canvas-space units. */
+export interface Layout {
+    /** Left edge, canvas-space. */
+    x: number;
+    /** Top edge, canvas-space. */
+    y: number;
+    /** Width, canvas-space units (≥ MIN_ITEM_WIDTH). */
+    width: number;
+    /** Height, canvas-space units (≥ MIN_ITEM_HEIGHT). */
+    height: number;
+    /** Stacking order within the canvas; higher renders on top. */
+    zIndex: number;
+}
+```
+
+### 5.3 Canvas view state (embedded value type)
+
+Persisted on each Canvas Host so a canvas reopens exactly where the user left it (**P1**).
+
+```typescript
+/** Saved pan/zoom for a canvas host. */
+export interface CanvasViewState {
+    /** Pan offset X, screen-space pixels at zoom = 1. */
+    panX: number;
+    /** Pan offset Y, screen-space pixels at zoom = 1. */
+    panY: number;
+    /** Zoom factor; 1 = 100%. Clamped to [ZOOM_MIN, ZOOM_MAX]. */
+    zoom: number;
+}
+```
+
+### 5.4 Project
+
+```typescript
+/** A self-contained data set: the root canvas host. */
+export interface Project extends DbEntity {
+    /** Display name. */
+    name: string;
+    /** Free-form description, arbitrary length. */
+    description: string;
+    /** Saved pan/zoom of the project's own canvas. */
+    viewState?: CanvasViewState;
+}
+```
+
+### 5.5 Task
+
+```typescript
+import { TaskUrgency } from './task-urgency.enum';
+
+/** A recursive, completable container of sub-tasks and notes. */
+export interface Task extends DbEntity {
+    /** Owning project (denormalized on every descendant for fast project-scoped queries). */
+    projectId: ObjectId;
+    /** Direct parent task; undefined means the task sits directly on the project canvas. */
+    parentTaskId?: ObjectId;
+    /** Ordered ancestor task ids, root-most first. Empty when directly under the project.
+     *  Enables subtree queries and cascade deletes without recursive lookups. */
+    ancestorTaskIds: ObjectId[];
+
+    /** Bold, prominent title shown on the card. */
+    title: string;
+    /** Body description; truncated visually if it overflows the card. */
+    description: string;
+    /** Drives the card's background/border color (see §7.2). */
+    urgency: TaskUrgency;
+    /** Completion flag. */
+    isComplete: boolean;
+
+    /** Position/size of this task as a card on its parent canvas. */
+    layout: Layout;
+    /** Saved pan/zoom of this task's own (child) canvas. */
+    viewState?: CanvasViewState;
+}
+```
+
+### 5.6 Note
+
+```typescript
+/** A single-level post-it: title + details, no children. */
+export interface Note extends DbEntity {
+    /** Owning project. */
+    projectId: ObjectId;
+    /** Canvas this note lives on; undefined means the project canvas. */
+    parentTaskId?: ObjectId;
+    /** Ordered ancestor task ids, root-most first; empty when on the project canvas. */
+    ancestorTaskIds: ObjectId[];
+
+    /** Title shown in the always off-yellow header. */
+    title: string;
+    /** Body content, arbitrary length. */
+    details: string;
+    /** User-chosen body background color (CSS color string). Header stays off-yellow. */
+    backgroundColor: string;
+
+    /** Position/size on its parent canvas. */
+    layout: Layout;
+}
+```
+
+### 5.7 Urgency enum
+
+```typescript
+/** Task urgency. Drives card color only (§7.2). Order is ascending time-pressure,
+ *  with LongTermGoal as a distinct low-pressure category. */
+export enum TaskUrgency {
+    LongTermGoal = 'long-term-goal',
+    Low = 'low',
+    Normal = 'normal',
+    Important = 'important',
+    Urgent = 'urgent',
+    Immediate = 'immediate',
+}
+```
+
+### 5.8 Shared constants
+
+```typescript
+/** Minimum card dimensions in canvas-space units. */
+export const MIN_ITEM_WIDTH = 160;
+export const MIN_ITEM_HEIGHT = 100;
+
+/** Zoom bounds and step. */
+export const ZOOM_MIN = 0.1;
+export const ZOOM_MAX = 4;
+export const ZOOM_STEP = 1.1; // multiplicative per wheel notch
+```
+
+---
+
+## 6. Database Strategy
+
+### 6.1 Collections
+
+Three collections, related by `_id` references (per the vision). Register names centrally in
+`src/model/db-collection-names.constants.ts` — never inline string literals.
+
+| Collection | Holds               |
+| ---------- | ------------------- |
+| `projects` | `Project` documents |
+| `tasks`    | `Task` documents    |
+| `notes`    | `Note` documents    |
+
+### 6.2 Relationships & indexes
+
+- A Task/Note references its `projectId` (always) and `parentTaskId` (optional).
+- `ancestorTaskIds` is the **materialized path** — the ordered list of all ancestor task ids. It is
+  set on insert and rewritten if an item is ever re-parented. It exists to make two operations cheap:
+  subtree reads and cascade deletes, without recursive round-trips.
+
+Recommended indexes:
+
+| Collection       | Index                               | Serves                            |
+| ---------------- | ----------------------------------- | --------------------------------- |
+| `tasks`, `notes` | `{ projectId: 1, parentTaskId: 1 }` | "load the items on this canvas"   |
+| `tasks`, `notes` | `{ ancestorTaskIds: 1 }`            | "load / delete an entire subtree" |
+| `tasks`, `notes` | `{ projectId: 1 }`                  | "everything in this project"      |
+
+**Loading a canvas** (project or task) is one query per collection:
+- Project canvas: `{ projectId, parentTaskId: { $exists: false } }`
+- Task canvas: `{ parentTaskId: <taskId> }`
+
+### 6.3 Cascade deletion (P6)
+
+Deletion is hard and cascading. Using the materialized path, deleting a Task `T` is:
+
+1. Delete all `tasks` where `ancestorTaskIds` contains `T._id`.
+2. Delete all `notes` where `ancestorTaskIds` contains `T._id`.
+3. Delete all `notes` where `parentTaskId === T._id` (direct notes; also covered by step 2 if their path includes `T`).
+4. Delete `T` itself.
+
+Deleting a **Project** deletes the project plus every `task` and `note` with that `projectId`.
+Deleting a **Note** deletes just that note.
+
+This multi-step process is owned by a dedicated server service (see §11.2), never duplicated in route
+handlers (**P7**).
+
+---
+
+## 7. Visual Representation
+
+### 7.1 Card anatomy (Task and Note)
+
+Both render as a resizable, positionable rectangle resembling an MS-Windows window:
+
+```
+┌────────────────────────────┐
+│  Title (bold, prominent)   │  ← header
+├────────────────────────────┤  ← horizontal divider
+│  Description / details      │  ← body (truncated on overflow)
+│  …                          │
+└────────────────────────────┘
+```
+
+- **Header:** bold title. For a Task, the header tints with the urgency hue; for a Note, the header is
+  always **off-yellow**.
+- **Divider:** a horizontal border between header and body.
+- **Body:** description (Task) or details (Note). Content is **truncated** if it does not fit; full
+  content is available via selection in the Details Pane.
+- **Border:** same hue as the background, one step darker.
+- **Resize/move:** like a desktop window — drag the body/header to move, drag edges/corners to resize,
+  down to the minimums in §5.8.
+
+### 7.2 Urgency color palette
+
+Cards take their color from `TaskUrgency`. `LongTermGoal` sits outside the warm pressure ramp as a
+distinct cool hue (it is aspirational, not time-pressured); `Low → Immediate` form a green→red ramp.
+Text on all backgrounds uses `--color-text-on-card` for contrast. Define these as design tokens (§9).
+
+| Urgency                  | Hue               | Background | Border (darker) |
+| ------------------------ | ----------------- | ---------- | --------------- |
+| Long Term Goal           | indigo / lavender | `#e4e3fb`  | `#7b73d4`       |
+| Low                      | green             | `#dff0db`  | `#6aa564`       |
+| Normal                   | neutral slate     | `#eceff2`  | `#94a1ae`       |
+| Important                | amber             | `#ffe3c2`  | `#e0903c`       |
+| Urgent                   | orange-red        | `#ffd0c2`  | `#dd5a36`       |
+| Immediate                | red               | `#ffc4c4`  | `#d23838`       |
+| **Note header (always)** | off-yellow        | `#fdf2c4`  | `#d9c65e`       |
+| Card text                | —                 | `#2b2b2b`  | —               |
+
+> These are the starting values requested in `application-details.md`. They are tokens, so re-theming
+> is a one-file change.
+
+### 7.3 Completion & selection states
+
+- **Complete task:** visually de-emphasized — recommended treatment is a reduced-opacity card with a
+  check indicator in the header and a strikethrough title. (Exact visual treatment is cosmetic and may
+  be tuned during build.)
+- **Completion is per-item and never cascades (D5).** Completing a task changes only that task's
+  `isComplete`; its sub-tasks and notes are untouched. This keeps the user's mental model exact and
+  makes completion losslessly reversible — un-completing a task later restores the subtree to the
+  identical state it had before.
+- **Selected item:** an accent outline plus resize handles. Exactly one item is selected at a time.
+
+---
+
+## 8. Canvas & Interaction
+
+### 8.1 Coordinate system
+
+- Items are stored in **canvas-space**: origin `(0, 0)` at the canvas's top-left, `+x` right, `+y` down,
+  one unit = one pixel at `zoom = 1`. An item's `Layout` is in canvas-space and is **independent of**
+  the current pan/zoom (**P1**).
+- The viewport applies a single transform `screen = (canvas * zoom) + pan`. Conversions between the two
+  spaces are owned by the viewport service (§11.1), not scattered through components.
+
+### 8.2 Pan
+
+- **Middle-mouse-button drag** pans the canvas.
+- Panning updates the live view state and is persisted to the host's `viewState` (debounced).
+
+### 8.3 Zoom
+
+- **Mouse wheel** zooms, by `ZOOM_STEP` per notch, clamped to `[ZOOM_MIN, ZOOM_MAX]`.
+- Zoom is **centered on the cursor**: the canvas point under the pointer stays fixed on screen while
+  the surface scales around it.
+
+### 8.4 View-state persistence (derived from P1)
+
+Because spatial memory is the point, each canvas remembers its pan and zoom. On entering a canvas,
+restore `viewState` if present; otherwise start at a sensible default (zoom = 1, pan framing existing
+content, or origin if empty). Persist changes debounced to avoid write storms.
+
+### 8.5 Selection rules
+
+- **Single-click** an item → select it (Details Pane shows its properties).
+- **Click empty canvas** → clear selection; the Details Pane falls back to the **current Canvas Host**
+  (the project on a project canvas; the task on a task canvas).
+- **Double-click a Task** → drill in (navigate to that task's canvas).
+- Notes cannot be drilled into.
+
+### 8.6 Moving & resizing
+
+- Drag to move; drag edges/corners to resize (min sizes per §5.8).
+- On drag/resize **end**, persist the new `Layout` via the canvas service. In-flight changes update
+  local observable state immediately for responsiveness (**P4/P5**).
+- Bringing an item forward updates its `zIndex`.
+
+---
+
+## 9. Styling & Design Tokens (P8)
+
+All colors and shared metrics live as CSS custom properties in `src/styles.scss`, extending the tokens
+already scaffolded there. Add at minimum:
+
+```scss
+:root {
+    // Urgency backgrounds
+    --color-urgency-long-term-bg: #e4e3fb;
+    --color-urgency-long-term-border: #7b73d4;
+    --color-urgency-low-bg: #dff0db;
+    --color-urgency-low-border: #6aa564;
+    --color-urgency-normal-bg: #eceff2;
+    --color-urgency-normal-border: #94a1ae;
+    --color-urgency-important-bg: #ffe3c2;
+    --color-urgency-important-border: #e0903c;
+    --color-urgency-urgent-bg: #ffd0c2;
+    --color-urgency-urgent-border: #dd5a36;
+    --color-urgency-immediate-bg: #ffc4c4;
+    --color-urgency-immediate-border: #d23838;
+
+    // Note header
+    --color-note-header-bg: #fdf2c4;
+    --color-note-header-border: #d9c65e;
+
+    // Card text
+    --color-text-on-card: #2b2b2b;
+}
+```
+
+Rules:
+- Never hard-code these colors in components — reference the tokens.
+- Every overlay (dialog, dropdown, confirmation) uses `appendTo="body"`.
+- Reuse existing layout utilities (`layout.scss`) and Bootstrap/PrimeNG classes before adding new ones.
+
+---
+
+## 10. Routing & Navigation (P5)
+
+The URL is the source of truth for "where am I." The route encodes the full ancestor chain so that
+**stripping the right-most segment navigates to the parent canvas**, exactly as requested.
+
+| Route                                            | Shows                                            |
+| ------------------------------------------------ | ------------------------------------------------ |
+| `/` → redirect to `/projects`                    | —                                                |
+| `/projects`                                      | Project list (create + open)                     |
+| `/projects/:projectId`                           | Project canvas                                   |
+| `/projects/:projectId/tasks/<id1>/<id2>/…/<idN>` | Canvas of task `idN`, nested under `id1…id(N-1)` |
+
+- The task chain is captured as the remaining path after `tasks/` (wildcard segment), parsed into an
+  ordered id list. The **last** id is the current canvas; the preceding ids are its ancestors.
+- The **breadcrumb** renders Project → each task in the chain; clicking a crumb navigates by truncating
+  the chain to that point. A dedicated **"back to parent"** control does the same one-level strip.
+- The chain parsed from the URL is validated against the loaded task's `ancestorTaskIds` (§5.5); a
+  mismatch or missing id routes to a not-found / nearest-valid ancestor.
+- Wildcard `**` redirects to `/projects`.
+
+> Encoding the whole chain in the path (rather than just the current task id) is what makes "remove the
+> right-most portion to go up" work for arbitrary depth. This is the recommended approach; see §13 if
+> you'd prefer the simpler single-id route with breadcrumb rebuilt purely from `ancestorTaskIds`.
+
+---
+
+## 11. Architecture — Frontend (Angular)
+
+Follow the scaffolded patterns (ComponentBase, `takeUntil(ngDestroy$)`, services own state, API clients
+own HTTP). Decompose by single responsibility (**P7**); the canvas is **one** implementation reused at
+every level (**P2**).
+
+### 11.1 Interaction & viewport services
+
+| Service                    | Responsibility                                                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `ViewportService`          | Holds live pan/zoom; converts screen ↔ canvas space; restores/persists `viewState`. One instance per active canvas. |
+| `CanvasInteractionService` | Pointer handling for move/resize/pan/zoom gestures; emits intent, delegates persistence to the canvas data service. |
+| `SelectionService`         | Current selection (project \| task \| note \| none); drives the Details Pane.                                       |
+
+### 11.2 Data / state services
+
+| Service              | Responsibility                                                                                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ProjectsService`    | List/create/update/delete projects; exposes `projectListing$` with a reload subject.                                                                                     |
+| `CanvasDataService`  | For the current host, loads its tasks + notes; exposes them as observables; handles add/move/resize/complete/delete by delegating to API clients and triggering reloads. |
+| `NavigationService`  | Parses the URL task chain, builds the breadcrumb, exposes navigation helpers (drill in, go to parent, jump to crumb).                                                    |
+| `DeletionService`    | Wraps PrimeNG confirmation + the delete API call; the single entry point for all destructive actions (**P6**).                                                           |
+| `DetailsPaneService` | Tracks the edit buffer + dirty state for the selected entity; Accept persists, Cancel reverts.                                                                           |
+
+### 11.3 API clients
+
+Under `src/app/services/api-clients/`, extending `ApiClientBase`:
+- `ClientApiService` (or split into `ProjectApiClient`, `TaskApiClient`, `NoteApiClient` if it grows).
+- One method per endpoint, all returning `Observable`s, typed with shared-models.
+- (Auth headers are scaffolded but unused — single-user app, no login.)
+
+### 11.4 Components (indicative)
+
+```
+components/
+├── component-base/
+├── project-list/                 — project cards, create button
+├── canvas/                       — THE reusable canvas (P2): renders any host's items
+│   ├── canvas-item/              — base card rendering (move/resize/select)
+│   ├── task-card/                — task specialization (urgency color, completion, drill-in)
+│   └── note-card/                — note specialization (off-yellow header, body color)
+├── details-pane/                 — selection-driven editor (project | task | note)
+└── app-shell/                    — title + breadcrumb bar shared across the app
+```
+
+---
+
+## 12. Architecture — Backend (Node/Express)
+
+Follow the scaffolded patterns (reflect-metadata first, Inversify composition root, route factories,
+Zod validation, global error handler, `DbCollectionNames`).
+
+### 12.1 DB services
+
+`ProjectDbService`, `TaskDbService`, `NoteDbService` — each `@injectable()`, extending `DbService`, with
+CRUD plus the canvas-scoped and subtree queries from §6. Set `ancestorTaskIds` on insert.
+
+### 12.2 Domain services
+
+- `CascadeDeleteService` — owns the multi-step subtree deletion (§6.3) across collections.
+- Future grouping/organization features get their own services rather than bloating existing ones (**P7**).
+
+### 12.3 Routes
+
+Route factories per concern: `createProjectRouter`, `createTaskRouter`, `createNoteRouter`. Validate
+incoming bodies with Zod (create/update payloads). Handlers `try/catch`, return early, defer unexpected
+errors to the global handler. No auth middleware on routes (single-user).
+
+---
+
+## 13. Resolved Decisions
+
+All forks below are **confirmed** (2026-06-07) and are now binding requirements. The rationale is kept
+so the reasoning survives.
+
+| #   | Decision                                  | Resolution                                                                                                                                       | Rationale                                                                                                                                                                                                                                                                                                                                                            |
+| --- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | **Canvas rendering technology**           | ✅ **DOM cards in a CSS-transformed container** (absolutely-positioned elements; pan/zoom via one transform). Not a raw `<canvas>` element.       | A literal `<canvas>` means hand-rolling text layout, truncation, hit-testing, resize handles, and editing — and gives up PrimeNG/HTML for the cards. A DOM-transform "canvas" delivers the same pan/zoom/drag/resize feel while letting cards be real, styled, editable HTML.                                                                                          |
+| D2  | **Route encoding for deep nesting**       | ✅ Encode the **full task-id chain** in the path (§10) so right-trimming the URL goes up a level.                                                 | The simpler single-id alternative doesn't satisfy "remove the right-most portion to navigate to the parent."                                                                                                                                                                                                                                                         |
+| D3  | **Materialized path (`ancestorTaskIds`)** | ✅ Adopt it on tasks and notes.                                                                                                                   | Makes subtree loads and cascade deletes cheap and non-recursive; small write-time cost; strongly supports the "expand later" mandate (**P7**).                                                                                                                                                                                                                       |
+| D4  | **Persist pan/zoom per canvas**           | ✅ Store `viewState` on each host.                                                                                                                | Directly serves the spatial-memory purpose (**P0/P1**).                                                                                                                                                                                                                                                                                                              |
+| D5  | **Completion cascade**                    | ✅ **No cascade.** Completing a task never changes its children; each item's `isComplete` is owned solely by that item.                            | The user must implicitly understand exactly what an action does — completing a parent must not silently alter children. It also makes completion **losslessly reversible**: un-completing a task later returns the subtree to the identical state it had before, because nothing else was ever touched. (This is independent of deletion, which *does* cascade — §6.3.) |
+| D6  | **Where notes/tasks are edited**          | ✅ All property editing happens in the **Details Pane** (uniform, per **P2**). Inline editing is deferred.                                         | Keeps one editing model across projects, tasks, and notes for now.                                                                                                                                                                                                                                                                                                  |
+| D7  | **Urgency semantics**                     | ✅ Urgency is **entirely visual** — it sets card color and nothing else. No aggregation, no roll-up, no mechanical behavior.                       | There is no other mechanical part to urgency; deriving a parent's urgency from children would invent behavior the model doesn't have.                                                                                                                                                                                                                                |
+
+---
+
+## 14. Open / Deferred (not yet specified)
+
+Captured so they aren't forgotten; out of scope until the items above are settled:
+
+- Multi-select and group-move (likely valuable for "grouping strategies," **P0** — a strong candidate for the first expansion).
+- Search / filtering across a project's tasks and notes.
+- Connectors or visual relationships between items beyond containment.
+- Export / import / backup of a project.
+- Keyboard shortcuts.
+
+---
+
+## 15. References
+
+- [`application-details.md`](./application-details.md) — original vision (source for this document).
+- [`CLAUDE.md`](./CLAUDE.md) — workspace overview, ports, architecture summary.
+- `project-management-client/CLAUDE.md` — frontend conventions.
+- `project-management-server/CLAUDE.md` — backend conventions.
+- `mean-stack-project-setup/references/project-standards.md` — cross-cutting coding standards.

@@ -1,0 +1,8 @@
+{
+    "folders": [
+        { "path": "project-management-client" },
+        { "path": "project-management-server" },
+        { "path": "workspace" }
+    ],
+    "settings": {}
+}

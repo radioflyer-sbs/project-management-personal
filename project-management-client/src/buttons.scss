@@ -1,0 +1,4 @@
+// Shared button rules
+p-button:not(:first-child) {
+    margin-left: 1em;
+}

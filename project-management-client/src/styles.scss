@@ -1,0 +1,27 @@
+@use 'layout';
+@use 'buttons';
+
+// Design tokens
+:root {
+    // Surfaces
+    --color-surface-panel: #f7f7f7;
+    --color-surface-page: #ffffff;
+
+    // Borders
+    --color-border: #e0e0e0;
+
+    // Brand
+    --color-brand-primary: var(--p-primary-color, #3b82f6);
+
+    // Typography
+    --font-family-base: "Segoe UI", Arial, sans-serif;
+    --font-size-base: 14px;
+}
+
+html, body {
+    height: 100%;
+    margin: 0;
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-base);
+    background-color: var(--color-surface-page);
+}
