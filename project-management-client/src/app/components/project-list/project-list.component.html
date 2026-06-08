@@ -1,0 +1,101 @@
+<div class="project-list-page">
+    <div class="page-header">
+        <h2 class="page-title">Projects</h2>
+        <p-button label="New Project" icon="pi pi-plus" (onClick)="openCreateDialog()" />
+    </div>
+
+    @if (loading) {
+        <div class="loading-state">Loading projects…</div>
+    } @else if (projects.length === 0) {
+        <div class="empty-state">
+            <p>No projects yet. Create your first project to get started.</p>
+        </div>
+    } @else {
+        <div class="project-grid">
+            @for (project of projects; track project._id) {
+                <div class="project-card" (click)="openProject(project)">
+                    <div class="project-card__header">
+                        <span class="project-card__name">{{ project.name }}</span>
+                        <div class="project-card__actions" (click)="$event.stopPropagation()">
+                            <p-button
+                                icon="pi pi-pencil"
+                                [text]="true"
+                                size="small"
+                                pTooltip="Edit"
+                                tooltipPosition="top"
+                                appendTo="body"
+                                (onClick)="openEditDialog(project, $event)"
+                            />
+                            <p-button
+                                icon="pi pi-trash"
+                                [text]="true"
+                                severity="danger"
+                                size="small"
+                                pTooltip="Delete"
+                                tooltipPosition="top"
+                                appendTo="body"
+                                (onClick)="deleteProject(project, $event)"
+                            />
+                        </div>
+                    </div>
+                    <div class="project-card__body">
+                        <p class="project-card__description">{{ project.description || 'No description.' }}</p>
+                    </div>
+                    <div class="project-card__footer">
+                        <span class="project-card__open-hint">Click to open <i class="pi pi-arrow-right"></i></span>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- Create project dialog -->
+<p-dialog
+    header="New Project"
+    [(visible)]="showCreateDialog"
+    [modal]="true"
+    [style]="{ width: '420px' }"
+    appendTo="body"
+>
+    <div class="dialog-form">
+        <div class="field">
+            <label for="newName">Name <span class="required">*</span></label>
+            <input id="newName" pInputText [(ngModel)]="newName" class="w-full" placeholder="Project name" />
+        </div>
+        <div class="field">
+            <label for="newDesc">Description</label>
+            <textarea id="newDesc" pTextarea [(ngModel)]="newDescription" class="w-full" rows="3" placeholder="Optional description"></textarea>
+        </div>
+    </div>
+    <ng-template pTemplate="footer">
+        <p-button label="Cancel" [text]="true" (onClick)="showCreateDialog = false" />
+        <p-button label="Create" icon="pi pi-check" [disabled]="!newName.trim()" (onClick)="createProject()" />
+    </ng-template>
+</p-dialog>
+
+<!-- Edit project dialog -->
+<p-dialog
+    header="Edit Project"
+    [(visible)]="showEditDialog"
+    [modal]="true"
+    [style]="{ width: '420px' }"
+    appendTo="body"
+>
+    <div class="dialog-form">
+        <div class="field">
+            <label for="editName">Name <span class="required">*</span></label>
+            <input id="editName" pInputText [(ngModel)]="editName" class="w-full" placeholder="Project name" />
+        </div>
+        <div class="field">
+            <label for="editDesc">Description</label>
+            <textarea id="editDesc" pTextarea [(ngModel)]="editDescription" class="w-full" rows="3" placeholder="Optional description"></textarea>
+        </div>
+    </div>
+    <ng-template pTemplate="footer">
+        <p-button label="Cancel" [text]="true" (onClick)="showEditDialog = false" />
+        <p-button label="Save" icon="pi pi-check" [disabled]="!editName.trim()" (onClick)="saveEdit()" />
+    </ng-template>
+</p-dialog>
+
+<p-confirmDialog appendTo="body" />

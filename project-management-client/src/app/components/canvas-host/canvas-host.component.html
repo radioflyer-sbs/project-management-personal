@@ -1,0 +1,92 @@
+<div class="canvas-host">
+
+    <!-- Toolbar -->
+    <div class="canvas-toolbar">
+        @if (isTaskCanvas) {
+            <p-button icon="pi pi-arrow-left" [text]="true" size="small" (onClick)="goBack()" pTooltip="Back" tooltipPosition="right" appendTo="body" />
+        }
+        <span class="canvas-toolbar__title">{{ hostDisplayName }}</span>
+        <div class="canvas-toolbar__spacer"></div>
+        <p-button label="Fit All" icon="pi pi-expand" [text]="true" size="small" (onClick)="fitAll()" pTooltip="Zoom to fit all items" tooltipPosition="bottom" appendTo="body" />
+        <p-button label="Edit" icon="pi pi-pencil" [text]="true" size="small" (onClick)="openEditDialog()" />
+        <p-button icon="pi pi-trash" [text]="true" severity="danger" size="small" (onClick)="deleteHost()" pTooltip="Delete" tooltipPosition="left" appendTo="body" />
+    </div>
+
+    <!-- Main area: canvas + details pane -->
+    <div class="canvas-host__body">
+        <!-- Canvas area -->
+        <div
+            #canvasArea
+            class="canvas-area"
+            (mousedown)="onCanvasMousedown($event)"
+            (wheel)="onCanvasWheel($event)"
+            (click)="onCanvasClick($event)"
+            (contextmenu)="onContextMenu($event)"
+        >
+            @if (loading) {
+                <div class="canvas-loading">Loading…</div>
+            } @else {
+                <div class="canvas-container" [style.transform]="transform">
+                    @for (task of tasks; track task._id) {
+                        <app-task-card
+                            [task]="task"
+                            [selected]="isTaskSelected(task)"
+                            (selected$)="onTaskSelected(task)"
+                            (drillIn$)="onDrillIntoTask(task)"
+                        />
+                    }
+                    @for (note of notes; track note._id) {
+                        <app-note-card
+                            [note]="note"
+                            [selected]="isNoteSelected(note)"
+                            (selected$)="onNoteSelected(note)"
+                        />
+                    }
+                </div>
+            }
+
+            <app-canvas-context-menu
+                [items]="contextMenuItems"
+                [visible]="contextMenuVisible"
+                [x]="contextMenuX"
+                [y]="contextMenuY"
+                (itemClicked$)="onContextMenuAction($event)"
+                (dismissed$)="contextMenuVisible = false"
+            />
+        </div>
+
+        <!-- Details pane -->
+        <div class="details-pane-wrapper">
+            <app-details-pane
+                [hostProject]="hostProject"
+                [hostTask]="hostTask"
+            />
+        </div>
+    </div>
+</div>
+
+<!-- Host edit dialog -->
+<p-dialog
+    [header]="isTaskCanvas ? 'Edit Task' : 'Edit Project'"
+    [(visible)]="showEditDialog"
+    [modal]="true"
+    [style]="{ width: '420px' }"
+    appendTo="body"
+>
+    <div class="dialog-form">
+        <div class="field">
+            <label>{{ isTaskCanvas ? 'Title' : 'Name' }} <span class="required">*</span></label>
+            <input pInputText [(ngModel)]="editName" class="w-full" />
+        </div>
+        <div class="field">
+            <label>Description</label>
+            <textarea pTextarea [(ngModel)]="editDescription" class="w-full" rows="3"></textarea>
+        </div>
+    </div>
+    <ng-template pTemplate="footer">
+        <p-button label="Cancel" [text]="true" (onClick)="showEditDialog = false" />
+        <p-button label="Save" icon="pi pi-check" [disabled]="!editName.trim()" (onClick)="saveEdit()" />
+    </ng-template>
+</p-dialog>
+
+<p-confirmDialog appendTo="body" />

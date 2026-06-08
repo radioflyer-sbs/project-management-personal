@@ -1,0 +1,85 @@
+.note-card {
+    position: absolute;
+    box-sizing: border-box;
+    border: 2px solid var(--color-note-header-border);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    cursor: move;
+    user-select: none;
+    overflow: hidden;
+    transition: box-shadow 0.1s;
+
+    &--selected {
+        box-shadow: 0 0 0 2px var(--color-brand-primary), 0 4px 16px rgba(0,0,0,0.18);
+    }
+
+    &__header {
+        background: var(--color-note-header-bg);
+        display: flex;
+        align-items: center;
+        padding: 6px 8px;
+        gap: 6px;
+    }
+
+    &__icon {
+        font-size: 12px;
+        color: var(--color-text-on-card);
+        opacity: 0.6;
+        flex-shrink: 0;
+    }
+
+    &__title {
+        font-weight: 700;
+        font-size: 0.875rem;
+        color: var(--color-text-on-card);
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__divider {
+        height: 1px;
+        background: var(--color-note-header-border);
+        opacity: 0.5;
+    }
+
+    &__body {
+        flex: 1;
+        padding: 6px 8px;
+        font-size: 0.8rem;
+        color: var(--color-text-on-card);
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 6;
+        -webkit-box-orient: vertical;
+    }
+}
+
+$handle-size: 8px;
+$handle-offset: calc(-#{$handle-size} / 2);
+$handle-color: var(--color-brand-primary);
+
+.resize-handle {
+    position: absolute;
+    width: $handle-size;
+    height: $handle-size;
+    background: $handle-color;
+    border-radius: 2px;
+    opacity: 0;
+    transition: opacity 0.15s;
+
+    .note-card--selected & {
+        opacity: 1;
+    }
+
+    &--n  { top: $handle-offset; left: 50%; transform: translateX(-50%); cursor: n-resize; }
+    &--s  { bottom: $handle-offset; left: 50%; transform: translateX(-50%); cursor: s-resize; }
+    &--e  { right: $handle-offset; top: 50%; transform: translateY(-50%); cursor: e-resize; }
+    &--w  { left: $handle-offset; top: 50%; transform: translateY(-50%); cursor: w-resize; }
+    &--ne { top: $handle-offset; right: $handle-offset; cursor: ne-resize; }
+    &--nw { top: $handle-offset; left: $handle-offset; cursor: nw-resize; }
+    &--se { bottom: $handle-offset; right: $handle-offset; cursor: se-resize; }
+    &--sw { bottom: $handle-offset; left: $handle-offset; cursor: sw-resize; }
+}

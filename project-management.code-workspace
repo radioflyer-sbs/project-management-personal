@@ -4,5 +4,63 @@
         { "path": "project-management-server" },
         { "path": "workspace" }
     ],
-    "settings": {}
+    "settings": {},
+    "launch": {
+        "version": "0.2.0",
+        "configurations": [
+            {
+                "name": "Debug Angular",
+                "type": "chrome",
+                "request": "launch",
+                "preLaunchTask": "Start Angular",
+                "url": "http://localhost:54201",
+                "webRoot": "${workspaceFolder:project-management-client}"
+            },
+            {
+                "name": "Debug Express Server",
+                "type": "node",
+                "request": "launch",
+                "runtimeExecutable": "node",
+                "runtimeArgs": ["--nolazy", "-r", "ts-node/register"],
+                "args": ["src/index.ts"],
+                "cwd": "${workspaceFolder:project-management-server}",
+                "sourceMaps": true,
+                "smartStep": true,
+                "internalConsoleOptions": "openOnSessionStart",
+                "env": {
+                    "TS_NODE_PROJECT": "${workspaceFolder:project-management-server}/tsconfig.json"
+                }
+            }
+        ],
+        "compounds": [
+            {
+                "name": "Debug Both",
+                "configurations": ["Debug Angular", "Debug Express Server"],
+                "stopAll": true
+            }
+        ]
+    },
+    "tasks": {
+        "version": "2.0.0",
+        "tasks": [
+            {
+                "label": "Start Angular",
+                "type": "shell",
+                "command": "npm start",
+                "options": {
+                    "cwd": "${workspaceFolder:project-management-client}"
+                },
+                "isBackground": true,
+                "problemMatcher": {
+                    "owner": "typescript",
+                    "pattern": "$tsc",
+                    "background": {
+                        "activeOnStart": true,
+                        "beginsPattern": { "regexp": "(.*?)" },
+                        "endsPattern": { "regexp": "bundle generation complete" }
+                    }
+                }
+            }
+        ]
+    }
 }

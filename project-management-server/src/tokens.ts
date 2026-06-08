@@ -1,6 +1,8 @@
-/** Inversify injection token symbols. Add one per injectable service. */
 export const TOKENS = {
-    AppConfig:      Symbol('AppConfig'),
-    MongoHelper:    Symbol('MongoHelper'),
-    // TODO-Immediate: Add tokens for your domain services here.
+    AppConfig:            Symbol('AppConfig'),
+    MongoHelper:          Symbol('MongoHelper'),
+    ProjectDbService:     Symbol('ProjectDbService'),
+    TaskDbService:        Symbol('TaskDbService'),
+    NoteDbService:        Symbol('NoteDbService'),
+    CascadeDeleteService: Symbol('CascadeDeleteService'),
 };

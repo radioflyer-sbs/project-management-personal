@@ -1,0 +1,27 @@
+<div
+    class="task-card"
+    [ngClass]="[urgencyClass, selected ? 'task-card--selected' : '']"
+    [ngStyle]="cardStyle"
+    (mousedown)="onMousedown($event)"
+    (click)="onClick($event)"
+    (dblclick)="onDblClick($event)"
+>
+    <div class="task-card__header">
+        @if (task.isComplete) {
+            <i class="pi pi-check task-card__complete-icon"></i>
+        }
+        <span class="task-card__title" [class.task-card__title--complete]="task.isComplete">
+            {{ task.title }}
+        </span>
+        <i class="pi pi-angle-double-right task-card__drill-hint" title="Double-click to open"></i>
+    </div>
+    <div class="task-card__divider"></div>
+    <div class="task-card__body">{{ task.description }}</div>
+
+    @for (handle of resizeHandles; track handle) {
+        <div
+            class="resize-handle resize-handle--{{ handle }}"
+            (mousedown)="onResizeMousedown($event, handle)"
+        ></div>
+    }
+</div>

@@ -1,0 +1,45 @@
+.context-menu {
+    position: fixed;
+    z-index: 9999;
+    background: #ffffff;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.14);
+    padding: 4px 0;
+    min-width: 160px;
+    animation: fadeIn 0.1s ease;
+
+    &__item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 8px 16px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        font-size: 0.875rem;
+        color: #333;
+        text-align: left;
+
+        &:hover {
+            background: var(--color-surface-panel);
+        }
+
+        i {
+            font-size: 14px;
+            opacity: 0.7;
+        }
+    }
+
+    &__separator {
+        height: 1px;
+        background: var(--color-border);
+        margin: 4px 0;
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
+}

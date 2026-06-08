@@ -3,33 +3,38 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import { Container } from 'inversify';
 import { getAppConfig } from './config';
+import { TOKENS } from './tokens';
+import { ProjectDbService } from './database/projects/project-db.service';
+import { TaskDbService } from './database/tasks/task-db.service';
+import { NoteDbService } from './database/notes/note-db.service';
+import { CascadeDeleteService } from './database/cascade-delete.service';
+import { createProjectRouter } from './server/projects/projects.router';
+import { createTaskRouter } from './server/tasks/tasks.router';
+import { createNoteRouter } from './server/notes/notes.router';
 
-/** Wires up Express middleware and routes, returns the configured Application. */
 export async function initializeExpressApp(container: Container): Promise<Application> {
     const config = await getAppConfig();
     const app = express();
 
-    // CORS — allow only the configured origins.
     app.use(cors({ origin: config.corsAllowed }));
-
-    // Body parsing.
     app.use(bodyParser.json());
 
-    // TODO-Immediate: Resolve services from container and mount routers here.
-    // Example:
-    // const projectDbService = await container.getAsync(TOKENS.ProjectDbService);
-    // app.use('/api', createProjectRouter(projectDbService));
+    const projectDb      = await container.getAsync<ProjectDbService>(TOKENS.ProjectDbService);
+    const taskDb         = await container.getAsync<TaskDbService>(TOKENS.TaskDbService);
+    const noteDb         = await container.getAsync<NoteDbService>(TOKENS.NoteDbService);
+    const cascadeDelete  = await container.getAsync<CascadeDeleteService>(TOKENS.CascadeDeleteService);
 
-    // 404 fallback.
+    app.use('/api/projects', createProjectRouter(projectDb, cascadeDelete));
+    app.use('/api/tasks',    createTaskRouter(taskDb, cascadeDelete));
+    app.use('/api/notes',    createNoteRouter(noteDb, cascadeDelete));
+
     app.use((_req: Request, res: Response) => {
         res.status(404).json({ message: 'Not found.' });
     });
 
-    // Global error handler — must have 4 args for Express to recognize it.
     app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
         const message = err instanceof Error ? err.message : 'Internal server error';
         console.error(`Unhandled error on ${req.method} ${req.path}:`, err);
-
         if (!res.headersSent) {
             res.status(500).json({ message: 'Internal server error' });
         }

@@ -1,0 +1,125 @@
+@use 'sass:color';
+
+.task-card {
+    position: absolute;
+    box-sizing: border-box;
+    border-width: 2px;
+    border-style: solid;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    cursor: move;
+    user-select: none;
+    transition: box-shadow 0.1s;
+
+    &--selected {
+        box-shadow: 0 0 0 2px var(--color-brand-primary), 0 4px 16px rgba(0,0,0,0.18);
+    }
+
+    &__header {
+        display: flex;
+        align-items: center;
+        padding: 6px 8px;
+        gap: 6px;
+        border-radius: 4px 4px 0 0;
+    }
+
+    &__complete-icon {
+        color: #2b9348;
+        font-size: 12px;
+        flex-shrink: 0;
+    }
+
+    &__title {
+        font-weight: 700;
+        font-size: 0.875rem;
+        color: var(--color-text-on-card);
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+
+        &--complete {
+            text-decoration: line-through;
+        }
+    }
+
+    &__drill-hint {
+        font-size: 10px;
+        color: var(--color-text-on-card);
+        opacity: 0.45;
+        flex-shrink: 0;
+    }
+
+    &__divider {
+        height: 1px;
+        background: currentColor;
+        opacity: 0.2;
+        margin: 0 4px;
+    }
+
+    &__body {
+        flex: 1;
+        padding: 6px 8px;
+        font-size: 0.8rem;
+        color: var(--color-text-on-card);
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 6;
+        -webkit-box-orient: vertical;
+    }
+}
+
+// Urgency color variants
+.urgency--long-term-goal {
+    background: var(--color-urgency-long-term-bg);
+    border-color: var(--color-urgency-long-term-border);
+}
+.urgency--low {
+    background: var(--color-urgency-low-bg);
+    border-color: var(--color-urgency-low-border);
+}
+.urgency--normal {
+    background: var(--color-urgency-normal-bg);
+    border-color: var(--color-urgency-normal-border);
+}
+.urgency--important {
+    background: var(--color-urgency-important-bg);
+    border-color: var(--color-urgency-important-border);
+}
+.urgency--urgent {
+    background: var(--color-urgency-urgent-bg);
+    border-color: var(--color-urgency-urgent-border);
+}
+.urgency--immediate {
+    background: var(--color-urgency-immediate-bg);
+    border-color: var(--color-urgency-immediate-border);
+}
+
+// Resize handles
+$handle-size: 8px;
+$handle-offset: calc(-#{$handle-size} / 2);
+$handle-color: var(--color-brand-primary);
+
+.resize-handle {
+    position: absolute;
+    width: $handle-size;
+    height: $handle-size;
+    background: $handle-color;
+    border-radius: 2px;
+    opacity: 0;
+    transition: opacity 0.15s;
+
+    .task-card--selected & {
+        opacity: 1;
+    }
+
+    &--n  { top: $handle-offset; left: 50%; transform: translateX(-50%); cursor: n-resize; }
+    &--s  { bottom: $handle-offset; left: 50%; transform: translateX(-50%); cursor: s-resize; }
+    &--e  { right: $handle-offset; top: 50%; transform: translateY(-50%); cursor: e-resize; }
+    &--w  { left: $handle-offset; top: 50%; transform: translateY(-50%); cursor: w-resize; }
+    &--ne { top: $handle-offset; right: $handle-offset; cursor: ne-resize; }
+    &--nw { top: $handle-offset; left: $handle-offset; cursor: nw-resize; }
+    &--se { bottom: $handle-offset; right: $handle-offset; cursor: se-resize; }
+    &--sw { bottom: $handle-offset; left: $handle-offset; cursor: sw-resize; }
+}

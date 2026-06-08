@@ -1,0 +1,16 @@
+@if (visible) {
+    <div class="context-menu" [style.left.px]="x" [style.top.px]="y">
+        @for (item of items; track item.action) {
+            @if (item.separator) {
+                <div class="context-menu__separator"></div>
+            } @else {
+                <button class="context-menu__item" (mousedown)="onItemClick(item.action, $event)">
+                    @if (item.icon) {
+                        <i class="pi {{ item.icon }}"></i>
+                    }
+                    {{ item.label }}
+                </button>
+            }
+        }
+    </div>
+}

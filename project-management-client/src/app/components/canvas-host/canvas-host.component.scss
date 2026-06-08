@@ -1,0 +1,103 @@
+:host {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.canvas-host {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.canvas-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--color-surface-panel);
+    border-bottom: 1px solid var(--color-border);
+    flex-shrink: 0;
+    min-height: 44px;
+
+    &__title {
+        font-weight: 600;
+        font-size: 0.95rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__spacer {
+        flex: 1;
+    }
+}
+
+.canvas-host__body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.canvas-area {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #f0f2f5;
+    cursor: default;
+
+    // Subtle grid dots for spatial reference
+    background-image: radial-gradient(circle, #c8cdd4 1px, transparent 1px);
+    background-size: 24px 24px;
+}
+
+.canvas-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: 0 0;
+    width: 0;
+    height: 0;
+    // Items use position: absolute relative to this container
+}
+
+.canvas-loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #888;
+    font-size: 0.9rem;
+}
+
+.details-pane-wrapper {
+    width: 320px;
+    flex-shrink: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.dialog-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 8px 0;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    label {
+        font-weight: 500;
+        font-size: 0.875rem;
+    }
+}
+
+.required { color: #d23838; }
+.w-full { width: 100%; }

@@ -1,7 +1,6 @@
 @use 'layout';
 @use 'buttons';
 
-// Design tokens
 :root {
     // Surfaces
     --color-surface-panel: #f7f7f7;
@@ -16,6 +15,27 @@
     // Typography
     --font-family-base: "Segoe UI", Arial, sans-serif;
     --font-size-base: 14px;
+
+    // Card text
+    --color-text-on-card: #2b2b2b;
+
+    // Urgency backgrounds (§9 / §7.2)
+    --color-urgency-long-term-bg:       #e4e3fb;
+    --color-urgency-long-term-border:   #7b73d4;
+    --color-urgency-low-bg:             #dff0db;
+    --color-urgency-low-border:         #6aa564;
+    --color-urgency-normal-bg:          #d0e8ff;
+    --color-urgency-normal-border:      #4a90d9;
+    --color-urgency-important-bg:       #ffe3c2;
+    --color-urgency-important-border:   #e0903c;
+    --color-urgency-urgent-bg:          #ffd0c2;
+    --color-urgency-urgent-border:      #dd5a36;
+    --color-urgency-immediate-bg:       #ffc4c4;
+    --color-urgency-immediate-border:   #d23838;
+
+    // Note header (always off-yellow)
+    --color-note-header-bg:     #fdf2c4;
+    --color-note-header-border: #d9c65e;
 }
 
 html, body {
@@ -24,4 +44,8 @@ html, body {
     font-family: var(--font-family-base);
     font-size: var(--font-size-base);
     background-color: var(--color-surface-page);
+    overflow: hidden;
 }
+
+// Suppress browser default context menu globally
+// (canvas uses custom context menu)

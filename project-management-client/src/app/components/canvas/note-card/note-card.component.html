@@ -1,0 +1,21 @@
+<div
+    class="note-card"
+    [class.note-card--selected]="selected"
+    [ngStyle]="cardStyle"
+    (mousedown)="onMousedown($event)"
+    (click)="onClick($event)"
+>
+    <div class="note-card__header">
+        <i class="pi pi-file-edit note-card__icon"></i>
+        <span class="note-card__title">{{ note.title }}</span>
+    </div>
+    <div class="note-card__divider"></div>
+    <div class="note-card__body" [ngStyle]="bodyStyle">{{ note.details }}</div>
+
+    @for (handle of resizeHandles; track handle) {
+        <div
+            class="resize-handle resize-handle--{{ handle }}"
+            (mousedown)="onResizeMousedown($event, handle)"
+        ></div>
+    }
+</div>
