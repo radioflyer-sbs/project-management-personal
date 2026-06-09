@@ -50,6 +50,7 @@
                             [selected]="isTaskSelected(task)"
                             (selected$)="onTaskSelected(task)"
                             (drillIn$)="onDrillIntoTask(task)"
+                            (taskEdited$)="onTaskEdited(task, $event)"
                         />
                     }
                     @for (note of notes; track note._id) {

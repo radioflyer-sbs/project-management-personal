@@ -1,17 +1,17 @@
-import { Component, Input, Output, EventEmitter, inject, OnChanges, OnInit, SimpleChanges, NgZone, ElementRef } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject, OnChanges, OnInit, SimpleChanges, NgZone, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { takeUntil } from 'rxjs/operators';
 import { ComponentBase } from '../../component-base/component-base.component';
 import { CanvasInteractionService, ResizeHandle } from '../../../services/canvas-interaction.service';
 import { Task } from '../../../../model/shared-models/task.model';
 import { Layout } from '../../../../model/shared-models/layout.model';
-import { TaskUrgency } from '../../../../model/shared-models/task-urgency.enum';
 import { TaskCounts } from '../../../../model/shared-models/task-counts.model';
 
 @Component({
     selector: 'app-task-card',
     standalone: true,
-    imports: [CommonModule],
+    imports: [CommonModule, FormsModule],
     templateUrl: './task-card.component.html',
     styleUrl: './task-card.component.scss',
 })
@@ -23,9 +23,13 @@ export class TaskCardComponent extends ComponentBase implements OnInit, OnChange
     @Input() selected = false;
     @Input() counts: TaskCounts | undefined;
 
-    @Output() selected$ = new EventEmitter<Task>();
-    @Output() drillIn$  = new EventEmitter<Task>();
+    @Output() selected$    = new EventEmitter<Task>();
+    @Output() drillIn$     = new EventEmitter<Task>();
+    @Output() taskEdited$  = new EventEmitter<{ title: string; description: string }>();
     @Output() layoutChanged$ = new EventEmitter<{ task: Task; layout: Layout }>();
+
+    @ViewChild('titleInput')       private titleInputRef?: ElementRef<HTMLInputElement>;
+    @ViewChild('descriptionInput') private descriptionInputRef?: ElementRef<HTMLTextAreaElement>;
 
     private readonly interaction = inject(CanvasInteractionService);
     private readonly zone        = inject(NgZone);
@@ -33,6 +37,12 @@ export class TaskCardComponent extends ComponentBase implements OnInit, OnChange
 
     localLayout!: Layout;
     private isDragging = false;
+
+    // Inline edit state
+    editingTitle       = false;
+    editingDescription = false;
+    localTitle         = '';
+    localDescription   = '';
 
     ngOnInit(): void {
         this.zone.runOutsideAngular(() => {
@@ -50,8 +60,6 @@ export class TaskCardComponent extends ComponentBase implements OnInit, OnChange
             });
         });
 
-        // Inside zone: finalize localLayout on drop so [ngStyle] re-syncs to the
-        // correct final position (not the stale bringToFront layout from tasks$).
         this.interaction.moveEnded$.pipe(takeUntil(this.ngDestroy$)).subscribe(e => {
             if (e.id !== this.task._id) { return; }
             this.isDragging = false;
@@ -75,10 +83,53 @@ export class TaskCardComponent extends ComponentBase implements OnInit, OnChange
     }
 
     ngOnChanges(changes: SimpleChanges): void {
-        if (changes['task'] && !this.isDragging) {
-            this.localLayout = { ...this.task.layout };
+        if (changes['task']) {
+            if (!this.isDragging)          { this.localLayout      = { ...this.task.layout }; }
+            if (!this.editingTitle)        { this.localTitle        = this.task.title; }
+            if (!this.editingDescription)  { this.localDescription  = this.task.description; }
         }
     }
+
+    // --- Inline title editing ---
+
+    startEditTitle(e: MouseEvent): void {
+        e.stopPropagation();
+        this.editingTitle = true;
+        setTimeout(() => {
+            this.titleInputRef?.nativeElement.focus();
+            this.titleInputRef?.nativeElement.select();
+        });
+    }
+
+    commitTitle(): void {
+        this.editingTitle = false;
+        this.taskEdited$.emit({ title: this.localTitle, description: this.localDescription });
+    }
+
+    cancelTitle(): void {
+        this.editingTitle = false;
+        this.localTitle = this.task.title;
+    }
+
+    // --- Inline description editing ---
+
+    startEditDescription(e: MouseEvent): void {
+        e.stopPropagation();
+        this.editingDescription = true;
+        setTimeout(() => this.descriptionInputRef?.nativeElement.focus());
+    }
+
+    commitDescription(): void {
+        this.editingDescription = false;
+        this.taskEdited$.emit({ title: this.localTitle, description: this.localDescription });
+    }
+
+    cancelDescription(): void {
+        this.editingDescription = false;
+        this.localDescription = this.task.description;
+    }
+
+    // --- Card interaction ---
 
     get cardStyle(): Record<string, string> {
         const l = this.localLayout;
@@ -123,7 +174,7 @@ export class TaskCardComponent extends ComponentBase implements OnInit, OnChange
         e.stopPropagation();
     }
 
-    onDblClick(e: MouseEvent): void {
+    onDrillClick(e: MouseEvent): void {
         e.stopPropagation();
         this.drillIn$.emit(this.task);
     }

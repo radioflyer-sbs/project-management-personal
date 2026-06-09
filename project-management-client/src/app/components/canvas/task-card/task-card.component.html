@@ -4,19 +4,50 @@
     [ngStyle]="cardStyle"
     (mousedown)="onMousedown($event)"
     (click)="onClick($event)"
-    (dblclick)="onDblClick($event)"
 >
     <div class="task-card__header">
         @if (task.isComplete) {
             <i class="pi pi-check task-card__complete-icon"></i>
         }
-        <span class="task-card__title" [class.task-card__title--complete]="task.isComplete">
-            {{ task.title }}
-        </span>
-        <i class="pi pi-angle-double-right task-card__drill-hint" title="Double-click to open"></i>
+        <div class="task-card__title-wrap">
+            @if (editingTitle) {
+                <input
+                    #titleInput
+                    class="task-card__title task-card__title--editing"
+                    [(ngModel)]="localTitle"
+                    (blur)="commitTitle()"
+                    (keydown.enter)="$event.preventDefault(); commitTitle()"
+                    (keydown.escape)="cancelTitle()"
+                    (mousedown)="$event.stopPropagation()"
+                />
+            } @else {
+                <span class="task-card__title" [class.task-card__title--complete]="task.isComplete" (dblclick)="startEditTitle($event)">
+                    {{ localTitle }}
+                </span>
+                <i class="pi pi-pencil task-card__edit-hint" title="Double-click to edit"></i>
+            }
+        </div>
+        <button class="task-card__drill-btn" title="Open" (click)="onDrillClick($event)">
+            <i class="pi pi-arrow-right"></i>
+        </button>
     </div>
     <div class="task-card__divider"></div>
-    <div class="task-card__body">{{ task.description }}</div>
+
+    <div class="task-card__body-wrap">
+        @if (editingDescription) {
+            <textarea
+                #descriptionInput
+                class="task-card__body--editing"
+                [(ngModel)]="localDescription"
+                (blur)="commitDescription()"
+                (keydown.escape)="cancelDescription()"
+                (mousedown)="$event.stopPropagation()"
+            ></textarea>
+        } @else {
+            <div class="task-card__body" (dblclick)="startEditDescription($event)">{{ localDescription }}</div>
+            <i class="pi pi-pencil task-card__body-edit-hint" title="Double-click to edit"></i>
+        }
+    </div>
 
     <div class="task-card__status-bar" style="display:flex;align-items:center;gap:4px;padding:4px 8px;background:rgba(0,0,0,0.12);border-top:1px solid rgba(0,0,0,0.2);flex-shrink:0;">
         <span class="task-card__stat" [class.task-card__stat--zero]="!counts?.directSubTasks" title="Direct sub-tasks">

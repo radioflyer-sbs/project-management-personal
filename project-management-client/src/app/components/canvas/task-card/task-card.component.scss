@@ -30,11 +30,26 @@
         flex-shrink: 0;
     }
 
+    // Wraps the title span/input + the edit hint icon
+    &__title-wrap {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        overflow: hidden;
+
+        &:hover .task-card__edit-hint {
+            opacity: 0.45;
+        }
+    }
+
     &__title {
         font-weight: 700;
         font-size: 0.875rem;
         color: var(--color-text-on-card);
         flex: 1;
+        min-width: 0;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -42,13 +57,54 @@
         &--complete {
             text-decoration: line-through;
         }
+
+        &--editing {
+            appearance: none;
+            -webkit-appearance: none;
+            background: transparent;
+            border: none;
+            outline: none;
+            padding: 0;
+            margin: 0;
+            width: 100%;
+            cursor: text;
+        }
     }
 
-    &__drill-hint {
-        font-size: 10px;
+    &__edit-hint {
+        font-size: 8px;
+        color: var(--color-text-on-card);
+        opacity: 0;
+        flex-shrink: 0;
+        transition: opacity 0.15s;
+        pointer-events: none;
+    }
+
+    &__drill-btn {
+        flex-shrink: 0;
+        appearance: none;
+        -webkit-appearance: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        padding: 0;
+        margin: 0;
+        border: none;
+        border-radius: 3px;
+        background: none;
         color: var(--color-text-on-card);
         opacity: 0.45;
-        flex-shrink: 0;
+        cursor: pointer;
+        transition: opacity 0.15s, background 0.15s;
+
+        .pi { font-size: 9px; }
+
+        &:hover {
+            opacity: 1;
+            background: rgba(0, 0, 0, 0.12);
+        }
     }
 
     &__divider {
@@ -58,17 +114,57 @@
         margin: 0 4px;
     }
 
-    &__body {
+    // Flex container that holds either the text view or the editing textarea
+    &__body-wrap {
         flex: 1 1 0;
         min-height: 0;
+        position: relative;
+        overflow: hidden;
+
+        &:hover .task-card__body-edit-hint {
+            opacity: 0.4;
+        }
+    }
+
+    &__body {
         padding: 6px 8px;
         font-size: 0.8rem;
         color: var(--color-text-on-card);
-        overflow: hidden;
         display: -webkit-box;
         -webkit-line-clamp: 6;
         -webkit-box-orient: vertical;
+        overflow: hidden;
         white-space: pre-wrap;
+    }
+
+    // Textarea shown when editing description
+    &__body--editing {
+        display: block;
+        box-sizing: border-box;
+        width: 100%;
+        height: 100%;
+        padding: 6px 8px;
+        font-size: 0.8rem;
+        font-family: inherit;
+        color: var(--color-text-on-card);
+        background: transparent;
+        border: none;
+        outline: none;
+        resize: none;
+        white-space: pre-wrap;
+        overflow: auto;
+        cursor: text;
+    }
+
+    &__body-edit-hint {
+        position: absolute;
+        bottom: 4px;
+        right: 6px;
+        font-size: 8px;
+        color: var(--color-text-on-card);
+        opacity: 0;
+        transition: opacity 0.15s;
+        pointer-events: none;
     }
 
     &__status-bar {

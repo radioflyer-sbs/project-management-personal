@@ -1,7 +1,8 @@
-import { Component, inject, Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, inject, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { takeUntil } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { takeUntil, debounceTime } from 'rxjs/operators';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { TextareaModule } from 'primeng/textarea';
@@ -15,7 +16,6 @@ import { DetailsPaneService } from '../../services/details-pane.service';
 import { DeletionService } from '../../services/deletion.service';
 import { CanvasDataService } from '../../services/canvas-data.service';
 import { ProjectsService } from '../../services/projects.service';
-import { NavigationService } from '../../services/navigation.service';
 import { Task } from '../../../model/shared-models/task.model';
 import { Note } from '../../../model/shared-models/note.model';
 import { Project } from '../../../model/shared-models/project.model';
@@ -44,7 +44,6 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
     private readonly deletionService  = inject(DeletionService);
     private readonly canvasData       = inject(CanvasDataService);
     private readonly projectsService  = inject(ProjectsService);
-    private readonly navigation       = inject(NavigationService);
 
     selection: SelectedItem = null;
 
@@ -69,16 +68,45 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
         { label: 'Immediate',      value: TaskUrgency.Immediate },
     ];
 
+    private readonly change$ = new Subject<void>();
+    private pendingSave = false;
+
     ngOnInit(): void {
         this.selectionService.currentSelection$.pipe(takeUntil(this.ngDestroy$)).subscribe(sel => {
+            // Flush any unsaved changes for the previous item before switching.
+            if (this.pendingSave) { this.flushSave(); }
             this.selection = sel;
             this.populateBuffers(sel);
         });
+
+        this.change$.pipe(
+            debounceTime(1000),
+            takeUntil(this.ngDestroy$),
+        ).subscribe(() => {
+            if (this.pendingSave) { this.flushSave(); }
+        });
+    }
+
+    override ngOnDestroy(): void {
+        if (this.pendingSave) { this.flushSave(); }
+        super.ngOnDestroy();
+    }
+
+    public onChange(): void {
+        this.pendingSave = true;
+        this.detailsService.markDirty();
+        this.change$.next();
+    }
+
+    private flushSave(): void {
+        this.pendingSave = false;
+        if (this.showingTask) { this.saveTask(); }
+        else if (this.showingNote) { this.saveNote(); }
+        else if (this.showingProject) { this.saveProject(); }
     }
 
     private populateBuffers(sel: SelectedItem): void {
         if (!sel) {
-            // Show host
             if (this.hostTask) {
                 this.editTitle       = this.hostTask.title;
                 this.editDescription = this.hostTask.description;
@@ -133,8 +161,6 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
     saveTask(): void {
         const selTask = this.effectiveTask;
         if (!selTask) { return; }
-        // Use the live canvas record so we preserve any layout changes (e.g. a move) that
-        // happened after the selection was captured.
         const current = this.canvasData.getTaskById(selTask._id as string) ?? selTask;
         const updated: Task = {
             ...current,
@@ -175,7 +201,7 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
         this.projectsService.update(project._id as string, {
             name:        this.hostName,
             description: this.hostDescription,
-        }).subscribe(updated => {
+        }).subscribe(() => {
             this.detailsService.markClean();
         });
     }
@@ -194,9 +220,5 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
         this.deletionService.deleteNote(note._id as string, note.title, () => {
             this.canvasData.removeNote(note._id as string);
         });
-    }
-
-    onMarkDirty(): void {
-        this.detailsService.markDirty();
     }
 }

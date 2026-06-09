@@ -14,28 +14,27 @@
         @if (showingTask && effectiveTask) {
             <div class="field">
                 <label>Title</label>
-                <input pInputText [(ngModel)]="editTitle" (ngModelChange)="onMarkDirty()" class="w-full" placeholder="Task title" />
+                <input pInputText [(ngModel)]="editTitle" (ngModelChange)="onChange()" class="w-full" placeholder="Task title" />
             </div>
             <div class="field">
                 <label>Description</label>
-                <textarea pTextarea [(ngModel)]="editDescription" (ngModelChange)="onMarkDirty()" class="w-full" rows="4" placeholder="Description"></textarea>
+                <textarea pTextarea [(ngModel)]="editDescription" (ngModelChange)="onChange()" class="w-full" rows="4" placeholder="Description"></textarea>
             </div>
             <div class="field">
                 <label>Urgency</label>
                 <p-select
                     [(ngModel)]="editUrgency"
                     [options]="urgencyOptions"
-                    (ngModelChange)="onMarkDirty()"
+                    (ngModelChange)="onChange()"
                     appendTo="body"
                     class="w-full"
                 />
             </div>
             <div class="field field--inline">
-                <p-checkbox [(ngModel)]="editIsComplete" [binary]="true" inputId="complete" (ngModelChange)="onMarkDirty()" />
+                <p-checkbox [(ngModel)]="editIsComplete" [binary]="true" inputId="complete" (ngModelChange)="onChange()" />
                 <label for="complete">Completed</label>
             </div>
             <div class="details-pane__actions">
-                <p-button label="Save" icon="pi pi-check" size="small" (onClick)="saveTask()" />
                 <p-button label="Delete" icon="pi pi-trash" size="small" severity="danger" [text]="true" (onClick)="deleteTask()" />
             </div>
         }
@@ -44,22 +43,21 @@
         @if (showingNote && effectiveNote) {
             <div class="field">
                 <label>Title</label>
-                <input pInputText [(ngModel)]="editTitle" (ngModelChange)="onMarkDirty()" class="w-full" placeholder="Note title" />
+                <input pInputText [(ngModel)]="editTitle" (ngModelChange)="onChange()" class="w-full" placeholder="Note title" />
             </div>
             <div class="field">
                 <label>Details</label>
-                <textarea pTextarea [(ngModel)]="editDetails" (ngModelChange)="onMarkDirty()" class="w-full" rows="6" placeholder="Note content"></textarea>
+                <textarea pTextarea [(ngModel)]="editDetails" (ngModelChange)="onChange()" class="w-full" rows="6" placeholder="Note content"></textarea>
             </div>
             <div class="field">
                 <label>Body Color</label>
                 <div class="color-picker-row">
-                    <p-colorPicker [(ngModel)]="editBgColor" (ngModelChange)="onMarkDirty()" appendTo="body" />
+                    <p-colorPicker [(ngModel)]="editBgColor" (ngModelChange)="onChange()" appendTo="body" />
                     <span class="color-preview" [style.background]="editBgColor"></span>
                     <span class="color-hex">{{ editBgColor }}</span>
                 </div>
             </div>
             <div class="details-pane__actions">
-                <p-button label="Save" icon="pi pi-check" size="small" (onClick)="saveNote()" />
                 <p-button label="Delete" icon="pi pi-trash" size="small" severity="danger" [text]="true" (onClick)="deleteNote()" />
             </div>
         }
@@ -68,14 +66,11 @@
         @if (showingProject && effectiveProject) {
             <div class="field">
                 <label>Name</label>
-                <input pInputText [(ngModel)]="hostName" (ngModelChange)="onMarkDirty()" class="w-full" placeholder="Project name" />
+                <input pInputText [(ngModel)]="hostName" (ngModelChange)="onChange()" class="w-full" placeholder="Project name" />
             </div>
             <div class="field">
                 <label>Description</label>
-                <textarea pTextarea [(ngModel)]="hostDescription" (ngModelChange)="onMarkDirty()" class="w-full" rows="4" placeholder="Description"></textarea>
-            </div>
-            <div class="details-pane__actions">
-                <p-button label="Save" icon="pi pi-check" size="small" (onClick)="saveProject()" />
+                <textarea pTextarea [(ngModel)]="hostDescription" (ngModelChange)="onChange()" class="w-full" rows="4" placeholder="Description"></textarea>
             </div>
         }
 

@@ -247,6 +247,16 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         this.navigation.drillIntoTask(this.projectId, chain);
     }
 
+    onTaskEdited(task: Task, edit: { title: string; description: string }): void {
+        const current = this.canvasData.getTaskById(task._id as string) ?? task;
+        this.canvasData.updateTask({ ...current, title: edit.title, description: edit.description })
+            .subscribe(result => {
+                if (this.isTaskSelected(result)) {
+                    this.selection.select({ type: 'task', item: result });
+                }
+            });
+    }
+
     isTaskSelected(task: Task): boolean {
         const sel = this.selection.current;
         return sel?.type === 'task' && sel.item._id === task._id;
