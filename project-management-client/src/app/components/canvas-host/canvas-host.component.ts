@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, OnDestroy, ElementRef, ViewChild } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, ElementRef, ViewChild, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, NavigationEnd } from '@angular/router';
 import { takeUntil, filter } from 'rxjs/operators';
@@ -289,6 +289,24 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         } else if (this.hostProject) {
             this.deletion.deleteProject(this.projectId, this.hostProject.name, () => {
                 this.navigation.navigateToProjects();
+            });
+        }
+    }
+
+    @HostListener('document:keydown', ['$event'])
+    onDocumentKeydown(e: KeyboardEvent): void {
+        if (e.key !== 'Delete') { return; }
+        const tag = (e.target as HTMLElement).tagName.toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || (e.target as HTMLElement).isContentEditable) { return; }
+
+        const sel = this.selection.current;
+        if (sel?.type === 'task') {
+            this.deletion.deleteTask(sel.item._id as string, sel.item.title, () => {
+                this.canvasData.removeTask(sel.item._id as string);
+            });
+        } else if (sel?.type === 'note') {
+            this.deletion.deleteNote(sel.item._id as string, sel.item.title, () => {
+                this.canvasData.removeNote(sel.item._id as string);
             });
         }
     }

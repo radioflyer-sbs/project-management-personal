@@ -1,5 +1,6 @@
-import { Component, Input, Output, EventEmitter, inject, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject, OnChanges, OnInit, SimpleChanges, NgZone, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { takeUntil } from 'rxjs/operators';
 import { ComponentBase } from '../../component-base/component-base.component';
 import { CanvasInteractionService, ResizeHandle } from '../../../services/canvas-interaction.service';
 import { Task } from '../../../../model/shared-models/task.model';
@@ -13,7 +14,7 @@ import { TaskUrgency } from '../../../../model/shared-models/task-urgency.enum';
     templateUrl: './task-card.component.html',
     styleUrl: './task-card.component.scss',
 })
-export class TaskCardComponent extends ComponentBase implements OnChanges {
+export class TaskCardComponent extends ComponentBase implements OnInit, OnChanges {
 
     constructor() { super(); }
 
@@ -25,11 +26,54 @@ export class TaskCardComponent extends ComponentBase implements OnChanges {
     @Output() layoutChanged$ = new EventEmitter<{ task: Task; layout: Layout }>();
 
     private readonly interaction = inject(CanvasInteractionService);
+    private readonly zone        = inject(NgZone);
+    private readonly el          = inject(ElementRef<HTMLElement>);
 
     localLayout!: Layout;
+    private isDragging = false;
+
+    ngOnInit(): void {
+        this.zone.runOutsideAngular(() => {
+            this.interaction.moveDragging$.pipe(takeUntil(this.ngDestroy$)).subscribe(e => {
+                if (e.id !== this.task._id) { return; }
+                this.isDragging = true;
+                this.localLayout = e.layout;
+                this.applyLayoutDirect(e.layout);
+            });
+            this.interaction.resizeDragging$.pipe(takeUntil(this.ngDestroy$)).subscribe(e => {
+                if (e.id !== this.task._id) { return; }
+                this.isDragging = true;
+                this.localLayout = e.layout;
+                this.applyLayoutDirect(e.layout);
+            });
+        });
+
+        // Inside zone: finalize localLayout on drop so [ngStyle] re-syncs to the
+        // correct final position (not the stale bringToFront layout from tasks$).
+        this.interaction.moveEnded$.pipe(takeUntil(this.ngDestroy$)).subscribe(e => {
+            if (e.id !== this.task._id) { return; }
+            this.isDragging = false;
+            this.localLayout = e.layout;
+            this.applyLayoutDirect(e.layout);
+        });
+        this.interaction.resizeEnded$.pipe(takeUntil(this.ngDestroy$)).subscribe(e => {
+            if (e.id !== this.task._id) { return; }
+            this.isDragging = false;
+            this.localLayout = e.layout;
+            this.applyLayoutDirect(e.layout);
+        });
+    }
+
+    private applyLayoutDirect(l: Layout): void {
+        const div = this.el.nativeElement.firstElementChild as HTMLElement;
+        div.style.left   = `${l.x}px`;
+        div.style.top    = `${l.y}px`;
+        div.style.width  = `${l.width}px`;
+        div.style.height = `${l.height}px`;
+    }
 
     ngOnChanges(changes: SimpleChanges): void {
-        if (changes['task']) {
+        if (changes['task'] && !this.isDragging) {
             this.localLayout = { ...this.task.layout };
         }
     }
@@ -75,7 +119,6 @@ export class TaskCardComponent extends ComponentBase implements OnChanges {
 
     onClick(e: MouseEvent): void {
         e.stopPropagation();
-        this.selected$.emit(this.task);
     }
 
     onDblClick(e: MouseEvent): void {

@@ -27,8 +27,14 @@ export class CanvasInteractionService {
     private readonly viewport = inject(ViewportService);
     private readonly zone     = inject(NgZone);
 
-    readonly moveEnded$   = new Subject<DragMoveEvent>();
-    readonly resizeEnded$ = new Subject<DragResizeEvent>();
+    /** Fires on every pointermove during a drag — handled by cards directly, outside Angular zone. */
+    readonly moveDragging$   = new Subject<DragMoveEvent>();
+    /** Fires once on pointerup — handled by host to persist the final layout. */
+    readonly moveEnded$      = new Subject<DragMoveEvent>();
+    /** Fires on every pointermove during a resize — handled by cards directly, outside Angular zone. */
+    readonly resizeDragging$ = new Subject<DragResizeEvent>();
+    /** Fires once on pointerup — handled by host to persist the final layout. */
+    readonly resizeEnded$    = new Subject<DragResizeEvent>();
 
     // --- Pan (middle mouse button drag) ---
     private isPanning = false;
@@ -81,8 +87,7 @@ export class CanvasInteractionService {
             layout = { ...layout, x: layout.x + dx, y: layout.y + dy };
             lastX = me.clientX;
             lastY = me.clientY;
-            // Emit interim updates for visual tracking
-            this.moveEnded$.next({ id, isTask, layout: { ...layout } });
+            this.moveDragging$.next({ id, isTask, layout: { ...layout } });
         };
 
         const onUp = () => {
@@ -116,7 +121,7 @@ export class CanvasInteractionService {
             lastX = me.clientX;
             lastY = me.clientY;
             layout = applyResize(layout, handle, dx, dy);
-            this.resizeEnded$.next({ id, isTask, layout: { ...layout } });
+            this.resizeDragging$.next({ id, isTask, layout: { ...layout } });
         };
 
         const onUp = () => {
