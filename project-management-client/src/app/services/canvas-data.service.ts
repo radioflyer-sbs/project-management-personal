@@ -86,15 +86,26 @@ export class CanvasDataService {
     }
 
     updateTaskLayout(taskId: string, layout: Layout): void {
-        this.taskApi.update(taskId, { layout }).subscribe(updated => {
-            this.tasks$.next(this.tasks$.getValue().map(t => t._id === taskId ? updated : t));
-        });
+        // Preserve the zIndex set by bringToFront; apply the new position immediately.
+        const current = this.tasks$.getValue().find(t => t._id === taskId);
+        const merged  = current ? { ...layout, zIndex: current.layout.zIndex } : layout;
+        this.tasks$.next(this.tasks$.getValue().map(t => t._id === taskId ? { ...t, layout: merged } : t));
+        this.taskApi.update(taskId, { layout: merged }).subscribe();
     }
 
     updateNoteLayout(noteId: string, layout: Layout): void {
-        this.noteApi.update(noteId, { layout }).subscribe(updated => {
-            this.notes$.next(this.notes$.getValue().map(n => n._id === noteId ? updated : n));
-        });
+        const current = this.notes$.getValue().find(n => n._id === noteId);
+        const merged  = current ? { ...layout, zIndex: current.layout.zIndex } : layout;
+        this.notes$.next(this.notes$.getValue().map(n => n._id === noteId ? { ...n, layout: merged } : n));
+        this.noteApi.update(noteId, { layout: merged }).subscribe();
+    }
+
+    getTaskById(id: string): Task | undefined {
+        return this.tasks$.getValue().find(t => t._id === id);
+    }
+
+    getNoteById(id: string): Note | undefined {
+        return this.notes$.getValue().find(n => n._id === id);
     }
 
     updateTask(task: Task): Observable<Task> {

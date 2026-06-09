@@ -131,10 +131,13 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
     }
 
     saveTask(): void {
-        const task = this.effectiveTask;
-        if (!task) { return; }
+        const selTask = this.effectiveTask;
+        if (!selTask) { return; }
+        // Use the live canvas record so we preserve any layout changes (e.g. a move) that
+        // happened after the selection was captured.
+        const current = this.canvasData.getTaskById(selTask._id as string) ?? selTask;
         const updated: Task = {
-            ...task,
+            ...current,
             title:       this.editTitle,
             description: this.editDescription,
             urgency:     this.editUrgency,
@@ -149,10 +152,11 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
     }
 
     saveNote(): void {
-        const note = this.effectiveNote;
-        if (!note) { return; }
+        const selNote = this.effectiveNote;
+        if (!selNote) { return; }
+        const current = this.canvasData.getNoteById(selNote._id as string) ?? selNote;
         const updated: Note = {
-            ...note,
+            ...current,
             title:           this.editTitle,
             details:         this.editDetails,
             backgroundColor: this.editBgColor,
