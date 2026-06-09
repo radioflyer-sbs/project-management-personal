@@ -68,4 +68,25 @@ export class TaskDbService extends DbService {
     async deleteMany(filter: Record<string, unknown>): Promise<void> {
         await this.dbHelper.deleteDataItems<Task>(DbCollectionNames.Tasks, filter as any);
     }
+
+    async getSubTaskCounts(taskIds: ObjectId[]): Promise<{ direct: Map<string, number>; total: Map<string, number> }> {
+        if (taskIds.length === 0) { return { direct: new Map(), total: new Map() }; }
+        const col = this.dbHelper.getCollection(DbCollectionNames.Tasks);
+        const [directResult, totalResult] = await Promise.all([
+            col.aggregate([
+                { $match: { parentTaskId: { $in: taskIds } } },
+                { $group: { _id: '$parentTaskId', count: { $sum: 1 } } },
+            ]).toArray(),
+            col.aggregate([
+                { $match: { ancestorTaskIds: { $in: taskIds } } },
+                { $unwind: '$ancestorTaskIds' },
+                { $match: { ancestorTaskIds: { $in: taskIds } } },
+                { $group: { _id: '$ancestorTaskIds', count: { $sum: 1 } } },
+            ]).toArray(),
+        ]);
+        return {
+            direct: new Map(directResult.map((r: any) => [r._id.toString(), r.count as number])),
+            total:  new Map(totalResult.map((r: any) => [r._id.toString(), r.count as number])),
+        };
+    }
 }

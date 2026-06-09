@@ -59,7 +59,8 @@
     }
 
     &__body {
-        flex: 1;
+        flex: 1 1 0;
+        min-height: 0;
         padding: 6px 8px;
         font-size: 0.8rem;
         color: var(--color-text-on-card);
@@ -68,6 +69,34 @@
         -webkit-line-clamp: 6;
         -webkit-box-orient: vertical;
         white-space: pre-wrap;
+    }
+
+    &__status-bar {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+        border-top: 1px solid rgba(0,0,0,0.15);
+        background: rgba(0,0,0,0.1);
+    }
+
+    &__stat {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: var(--color-text-on-card);
+        padding: 1px 5px;
+
+        .pi {
+            font-size: 0.62rem;
+        }
+
+        &--zero {
+            opacity: 0.35;
+        }
     }
 }
 

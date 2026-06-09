@@ -46,14 +46,20 @@
     padding: 0;
 
     .p-menuitem-link {
-        color: rgba(255,255,255,0.85) !important;
+        color: rgba(255,255,255,0.75) !important;
         font-size: 0.85rem;
 
         &:hover { color: #fff !important; }
     }
 
+    // Active (last) breadcrumb item — current page — full white
+    li:last-child .p-menuitem-link {
+        color: #fff !important;
+        font-weight: 600;
+    }
+
     .p-breadcrumb-chevron {
-        color: rgba(255,255,255,0.6) !important;
+        color: rgba(255,255,255,0.55) !important;
         font-size: 0.75rem;
     }
 

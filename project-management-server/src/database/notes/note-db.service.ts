@@ -61,4 +61,14 @@ export class NoteDbService extends DbService {
     async deleteMany(filter: Record<string, unknown>): Promise<void> {
         await this.dbHelper.deleteDataItems<Note>(DbCollectionNames.Notes, filter as any);
     }
+
+    async getDirectNoteCountsForTasks(taskIds: ObjectId[]): Promise<Map<string, number>> {
+        if (taskIds.length === 0) { return new Map(); }
+        const col = this.dbHelper.getCollection(DbCollectionNames.Notes);
+        const result = await col.aggregate([
+            { $match: { parentTaskId: { $in: taskIds } } },
+            { $group: { _id: '$parentTaskId', count: { $sum: 1 } } },
+        ]).toArray();
+        return new Map(result.map((r: any) => [r._id.toString(), r.count as number]));
+    }
 }

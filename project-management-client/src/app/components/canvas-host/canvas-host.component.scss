@@ -26,6 +26,7 @@
     &__title {
         font-weight: 600;
         font-size: 0.95rem;
+        color: var(--color-text-primary, #1c1c2e);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -46,11 +47,11 @@
     flex: 1;
     position: relative;
     overflow: hidden;
-    background: #f0f2f5;
+    background: #e8ecf2;
     cursor: default;
 
     // Subtle grid dots for spatial reference
-    background-image: radial-gradient(circle, #c8cdd4 1px, transparent 1px);
+    background-image: radial-gradient(circle, #b0b8c6 1px, transparent 1px);
     background-size: 24px 24px;
 }
 

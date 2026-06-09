@@ -6,6 +6,7 @@ import { CanvasInteractionService, ResizeHandle } from '../../../services/canvas
 import { Task } from '../../../../model/shared-models/task.model';
 import { Layout } from '../../../../model/shared-models/layout.model';
 import { TaskUrgency } from '../../../../model/shared-models/task-urgency.enum';
+import { TaskCounts } from '../../../../model/shared-models/task-counts.model';
 
 @Component({
     selector: 'app-task-card',
@@ -20,6 +21,7 @@ export class TaskCardComponent extends ComponentBase implements OnInit, OnChange
 
     @Input({ required: true }) task!: Task;
     @Input() selected = false;
+    @Input() counts: TaskCounts | undefined;
 
     @Output() selected$ = new EventEmitter<Task>();
     @Output() drillIn$  = new EventEmitter<Task>();

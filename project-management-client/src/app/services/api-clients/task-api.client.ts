@@ -5,6 +5,7 @@ import { Task } from '../../../model/shared-models/task.model';
 import { Layout } from '../../../model/shared-models/layout.model';
 import { TaskUrgency } from '../../../model/shared-models/task-urgency.enum';
 import { CanvasViewState } from '../../../model/shared-models/canvas-view-state.model';
+import { TaskCounts } from '../../../model/shared-models/task-counts.model';
 
 export interface CreateTaskDto {
     projectId: string;
@@ -44,5 +45,13 @@ export class TaskApiClient extends ApiClientBase {
 
     delete(id: string): Observable<void> {
         return this.http.delete<void>(`${this.apiBaseUrl}/tasks/${id}`, this.buildOptions().build());
+    }
+
+    getCounts(taskIds: string[]): Observable<Record<string, TaskCounts>> {
+        return this.http.post<Record<string, TaskCounts>>(
+            `${this.apiBaseUrl}/tasks/counts-for-ids`,
+            { taskIds },
+            this.buildOptions().build(),
+        );
     }
 }

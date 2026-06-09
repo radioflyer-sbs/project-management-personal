@@ -46,6 +46,7 @@
                     @for (task of tasks; track task._id) {
                         <app-task-card
                             [task]="task"
+                            [counts]="taskCounts[task._id]"
                             [selected]="isTaskSelected(task)"
                             (selected$)="onTaskSelected(task)"
                             (drillIn$)="onDrillIntoTask(task)"

@@ -14,7 +14,7 @@
     &__heading {
         font-weight: 600;
         font-size: 0.9rem;
-        color: #333;
+        color: var(--color-text-primary, #1c1c2e);
     }
 
     &__content {
@@ -34,7 +34,7 @@
     }
 
     &__empty {
-        color: #888;
+        color: var(--color-text-muted, #8888a0);
         font-size: 0.875rem;
         text-align: center;
         padding: 32px 0;
@@ -49,7 +49,7 @@
     label {
         font-size: 0.8rem;
         font-weight: 500;
-        color: #555;
+        color: var(--color-text-secondary, #50506a);
     }
 
     &--inline {
@@ -83,6 +83,6 @@
 
 .color-hex {
     font-size: 0.8rem;
-    color: #666;
+    color: var(--color-text-secondary, #50506a);
     font-family: monospace;
 }

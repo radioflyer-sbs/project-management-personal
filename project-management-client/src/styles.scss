@@ -3,11 +3,12 @@
 
 :root {
     // Surfaces
-    --color-surface-panel: #f7f7f7;
-    --color-surface-page: #ffffff;
+    --color-surface-page:  #e8ecf1;   /* page/body background — slightly blue-gray */
+    --color-surface-panel: #f4f5f8;   /* toolbar, side panels */
+    --color-surface-card:  #ffffff;   /* card/tile surfaces */
 
     // Borders
-    --color-border: #e0e0e0;
+    --color-border: #cdd1db;
 
     // Brand
     --color-brand-primary: var(--p-primary-color, #3b82f6);
@@ -16,8 +17,12 @@
     --font-family-base: "Segoe UI", Arial, sans-serif;
     --font-size-base: 14px;
 
-    // Card text
-    --color-text-on-card: #2b2b2b;
+    --color-text-primary:   #1c1c2e;  /* headings, card titles, strong body copy */
+    --color-text-secondary: #50506a;  /* labels, descriptions, secondary text */
+    --color-text-muted:     #8888a0;  /* placeholder, empty-state, hints */
+
+    // Card text (canvas cards)
+    --color-text-on-card: #1c1c2e;
 
     // Urgency backgrounds (§9 / §7.2)
     --color-urgency-long-term-bg:       #e4e3fb;

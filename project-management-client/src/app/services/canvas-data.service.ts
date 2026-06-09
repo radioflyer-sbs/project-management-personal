@@ -1,12 +1,13 @@
 import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject, Observable, Subject, forkJoin } from 'rxjs';
-import { switchMap, debounceTime, tap } from 'rxjs/operators';
+import { BehaviorSubject, Observable, forkJoin } from 'rxjs';
+import { tap } from 'rxjs/operators';
 import { TaskApiClient, CreateTaskDto } from './api-clients/task-api.client';
 import { NoteApiClient, CreateNoteDto } from './api-clients/note-api.client';
 import { ProjectApiClient } from './api-clients/project-api.client';
 import { Task } from '../../model/shared-models/task.model';
 import { Note } from '../../model/shared-models/note.model';
 import { Layout } from '../../model/shared-models/layout.model';
+import { TaskCounts } from '../../model/shared-models/task-counts.model';
 import { TaskUrgency } from '../../model/shared-models/task-urgency.enum';
 import { CanvasViewState } from '../../model/shared-models/canvas-view-state.model';
 import { DEFAULT_ITEM_WIDTH, DEFAULT_ITEM_HEIGHT } from '../../model/shared-models/canvas-constants';
@@ -25,12 +26,13 @@ export class CanvasDataService {
     private parentTaskId: string | undefined;
     private ancestorTaskIds: string[] = [];
 
-    private readonly tasks$  = new BehaviorSubject<Task[]>([]);
-    private readonly notes$  = new BehaviorSubject<Note[]>([]);
-    private readonly reload$ = new Subject<void>();
+    private readonly tasks$       = new BehaviorSubject<Task[]>([]);
+    private readonly notes$       = new BehaviorSubject<Note[]>([]);
+    private readonly taskCounts$  = new BehaviorSubject<Record<string, TaskCounts>>({});
 
-    readonly tasks: Observable<Task[]>  = this.tasks$.asObservable();
-    readonly notes: Observable<Note[]>  = this.notes$.asObservable();
+    readonly tasks:      Observable<Task[]>                     = this.tasks$.asObservable();
+    readonly notes:      Observable<Note[]>                     = this.notes$.asObservable();
+    readonly taskCounts: Observable<Record<string, TaskCounts>> = this.taskCounts$.asObservable();
 
     initialize(projectId: string, parentTaskId: string | undefined, ancestorTaskIds: string[]): void {
         this.projectId      = projectId;
@@ -51,6 +53,12 @@ export class CanvasDataService {
         forkJoin([tasks$, notes$]).subscribe(([tasks, notes]) => {
             this.tasks$.next(tasks);
             this.notes$.next(notes);
+            const taskIds = tasks.map(t => (t._id as any).toString());
+            if (taskIds.length > 0) {
+                this.taskApi.getCounts(taskIds).subscribe(counts => this.taskCounts$.next(counts));
+            } else {
+                this.taskCounts$.next({});
+            }
         });
     }
 

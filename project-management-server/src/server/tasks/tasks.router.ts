@@ -2,8 +2,10 @@ import { Router, Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 import { TaskDbService } from '../../database/tasks/task-db.service';
+import { NoteDbService } from '../../database/notes/note-db.service';
 import { CascadeDeleteService } from '../../database/cascade-delete.service';
 import { TaskUrgency } from '../../model/shared-models/task-urgency.enum';
+import { TaskCounts } from '../../model/shared-models/task-counts.model';
 
 const LayoutSchema = z.object({
     x:      z.number(),
@@ -36,8 +38,32 @@ const UpdateTaskSchema = z.object({
 export function createTaskRouter(
     taskDb: TaskDbService,
     cascadeDelete: CascadeDeleteService,
+    noteDb: NoteDbService,
 ): Router {
     const router = Router();
+
+    router.post('/counts-for-ids', async (req: Request, res: Response) => {
+        const parse = z.object({ taskIds: z.array(z.string()) }).safeParse(req.body);
+        if (!parse.success) { res.status(400).json({ message: 'Invalid body' }); return; }
+        try {
+            const objectIds = parse.data.taskIds.map(id => new ObjectId(id));
+            const [subTaskCounts, noteCounts] = await Promise.all([
+                taskDb.getSubTaskCounts(objectIds),
+                noteDb.getDirectNoteCountsForTasks(objectIds),
+            ]);
+            const result: Record<string, TaskCounts> = {};
+            for (const id of parse.data.taskIds) {
+                result[id] = {
+                    directSubTasks: subTaskCounts.direct.get(id) ?? 0,
+                    totalSubTasks:  subTaskCounts.total.get(id) ?? 0,
+                    directNotes:    noteCounts.get(id) ?? 0,
+                };
+            }
+            res.json(result);
+        } catch (err) {
+            res.status(500).json({ message: 'Failed to get task counts' });
+        }
+    });
 
     router.get('/by-project/:projectId', async (req: Request, res: Response) => {
         try {

@@ -25,7 +25,7 @@ export async function initializeExpressApp(container: Container): Promise<Applic
     const cascadeDelete  = await container.getAsync<CascadeDeleteService>(TOKENS.CascadeDeleteService);
 
     app.use('/api/projects', createProjectRouter(projectDb, cascadeDelete));
-    app.use('/api/tasks',    createTaskRouter(taskDb, cascadeDelete));
+    app.use('/api/tasks',    createTaskRouter(taskDb, cascadeDelete, noteDb));
     app.use('/api/notes',    createNoteRouter(noteDb, cascadeDelete));
 
     app.use((_req: Request, res: Response) => {

@@ -25,6 +25,7 @@ import { Task } from '../../../model/shared-models/task.model';
 import { Note } from '../../../model/shared-models/note.model';
 import { Project } from '../../../model/shared-models/project.model';
 import { Layout } from '../../../model/shared-models/layout.model';
+import { TaskCounts } from '../../../model/shared-models/task-counts.model';
 
 @Component({
     selector: 'app-canvas-host',
@@ -55,8 +56,9 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
     private readonly deletion    = inject(DeletionService);
     private readonly taskApi     = inject(TaskApiClient);
 
-    tasks: Task[]  = [];
-    notes: Note[]  = [];
+    tasks:      Task[]  = [];
+    notes:      Note[]  = [];
+    taskCounts: Record<string, TaskCounts> = {};
     hostProject: Project | null = null;
     hostTask: Task | null = null;
     loading = true;
@@ -85,6 +87,7 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         // One-time subscriptions — stay alive for the lifetime of the component.
         this.canvasData.tasks.pipe(takeUntil(this.ngDestroy$)).subscribe(t => this.tasks = t);
         this.canvasData.notes.pipe(takeUntil(this.ngDestroy$)).subscribe(n => this.notes = n);
+        this.canvasData.taskCounts.pipe(takeUntil(this.ngDestroy$)).subscribe(c => this.taskCounts = c);
 
         this.viewport.persistNeeded$.pipe(takeUntil(this.ngDestroy$)).subscribe(vs => {
             const hostId = this.hostTask ? (this.hostTask._id as string) : this.projectId;

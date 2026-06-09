@@ -18,6 +18,18 @@
     <div class="task-card__divider"></div>
     <div class="task-card__body">{{ task.description }}</div>
 
+    <div class="task-card__status-bar" style="display:flex;align-items:center;gap:4px;padding:4px 8px;background:rgba(0,0,0,0.12);border-top:1px solid rgba(0,0,0,0.2);flex-shrink:0;">
+        <span class="task-card__stat" [class.task-card__stat--zero]="!counts?.directSubTasks" title="Direct sub-tasks">
+            <i class="pi pi-list"></i>{{ counts?.directSubTasks ?? 0 }}
+        </span>
+        <span class="task-card__stat" [class.task-card__stat--zero]="!counts?.totalSubTasks" title="All sub-tasks (including nested)">
+            <i class="pi pi-sitemap"></i>{{ counts?.totalSubTasks ?? 0 }}
+        </span>
+        <span class="task-card__stat" [class.task-card__stat--zero]="!counts?.directNotes" title="Notes">
+            <i class="pi pi-file"></i>{{ counts?.directNotes ?? 0 }}
+        </span>
+    </div>
+
     @for (handle of resizeHandles; track handle) {
         <div
             class="resize-handle resize-handle--{{ handle }}"
