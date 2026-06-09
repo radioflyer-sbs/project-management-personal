@@ -64,6 +64,14 @@
     // Items use position: absolute relative to this container
 }
 
+.canvas-origin-marker {
+    position: absolute;
+    left: 0;
+    top: 0;
+    overflow: visible;
+    pointer-events: none;
+}
+
 .canvas-loading {
     position: absolute;
     top: 50%;

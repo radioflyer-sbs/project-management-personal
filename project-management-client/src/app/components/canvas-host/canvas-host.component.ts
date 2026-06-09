@@ -176,6 +176,15 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         return this.viewport.cssTransform;
     }
 
+    get gridStyle(): Record<string, string> {
+        const { panX, panY, zoom } = this.viewport.current;
+        const spacing = 24 * zoom;
+        return {
+            'background-size':     `${spacing}px ${spacing}px`,
+            'background-position': `${panX}px ${panY}px`,
+        };
+    }
+
     // --- Canvas events ---
 
     onCanvasMousedown(e: MouseEvent): void {
