@@ -15,4 +15,6 @@ export interface Task extends DbEntity {
     isComplete: boolean;
     layout: Layout;
     viewState?: CanvasViewState;
+    groupId?: string;
+    preGroupLayout?: Layout;
 }

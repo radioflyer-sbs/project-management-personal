@@ -1,0 +1,26 @@
+<div class="group-card" [class.group-card--selected]="selected" [ngStyle]="cardStyle" (click)="onCardClick($event)">
+
+    <div class="group-card__title-bar" (mousedown)="onTitleBarMousedown($event)">
+        <i class="pi pi-th-large group-card__icon"></i>
+        @if (editingTitle) {
+            <input
+                class="group-card__title-input"
+                [(ngModel)]="localTitle"
+                (blur)="commitTitle()"
+                (keydown.enter)="commitTitle()"
+                (keydown.escape)="cancelTitle()"
+                (click)="$event.stopPropagation()"
+                #titleInput
+            />
+        } @else {
+            <span class="group-card__title" (dblclick)="onTitleDblclick($event)">{{ localTitle }}</span>
+        }
+        <span class="group-card__count">{{ group.itemIds.length }}</span>
+    </div>
+
+    <div class="group-card__body"></div>
+
+    @for (handle of resizeHandles; track handle) {
+        <div class="resize-handle resize-handle--{{ handle }}" (mousedown)="onResizeMousedown($event, handle)"></div>
+    }
+</div>

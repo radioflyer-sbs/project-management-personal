@@ -5,16 +5,20 @@ import { MIN_ITEM_WIDTH, MIN_ITEM_HEIGHT } from '../../model/shared-models/canva
 import { Layout } from '../../model/shared-models/layout.model';
 
 export type ResizeHandle = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw';
+export type DragItemType = 'task' | 'note' | 'group';
 
 export interface DragMoveEvent {
     id: string;
     isTask: boolean;
+    itemType: DragItemType;
+    fromGroupDrag: boolean;
     layout: Layout;
 }
 
 export interface DragResizeEvent {
     id: string;
     isTask: boolean;
+    itemType: DragItemType;
     layout: Layout;
 }
 
@@ -80,6 +84,7 @@ export class CanvasInteractionService {
         let layout = { ...currentLayout };
         let lastX = e.clientX;
         let lastY = e.clientY;
+        const itemType: DragItemType = isTask ? 'task' : 'note';
 
         const onMove = (me: PointerEvent) => {
             const dx = (me.clientX - lastX) / zoom;
@@ -87,13 +92,66 @@ export class CanvasInteractionService {
             layout = { ...layout, x: layout.x + dx, y: layout.y + dy };
             lastX = me.clientX;
             lastY = me.clientY;
-            this.moveDragging$.next({ id, isTask, layout: { ...layout } });
+            this.moveDragging$.next({ id, isTask, itemType, fromGroupDrag: false, layout: { ...layout } });
         };
 
         const onUp = () => {
             document.removeEventListener('pointermove', onMove);
             document.removeEventListener('pointerup', onUp);
-            this.moveEnded$.next({ id, isTask, layout });
+            this.moveEnded$.next({ id, isTask, itemType, fromGroupDrag: false, layout });
+        };
+
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
+    }
+
+    // --- Move group (drags the group and all contained items together) ---
+    startMoveGroup(
+        e: PointerEvent,
+        id: string,
+        currentLayout: Layout,
+        containedItems: Array<{ id: string; isTask: boolean; layout: Layout }>,
+    ): void {
+        e.stopPropagation();
+        const { zoom } = this.viewport.current;
+        let layout = { ...currentLayout };
+        let items = containedItems.map(i => ({ ...i, layout: { ...i.layout } }));
+        let lastX = e.clientX;
+        let lastY = e.clientY;
+
+        const onMove = (me: PointerEvent) => {
+            const dx = (me.clientX - lastX) / zoom;
+            const dy = (me.clientY - lastY) / zoom;
+            layout = { ...layout, x: layout.x + dx, y: layout.y + dy };
+            items = items.map(item => ({
+                ...item,
+                layout: { ...item.layout, x: item.layout.x + dx, y: item.layout.y + dy },
+            }));
+            lastX = me.clientX;
+            lastY = me.clientY;
+            this.moveDragging$.next({ id, isTask: false, itemType: 'group', fromGroupDrag: false, layout: { ...layout } });
+            items.forEach(item =>
+                this.moveDragging$.next({
+                    id: item.id, isTask: item.isTask,
+                    itemType: item.isTask ? 'task' : 'note',
+                    fromGroupDrag: true,
+                    layout: { ...item.layout },
+                })
+            );
+        };
+
+        const onUp = () => {
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', onUp);
+            this.moveEnded$.next({ id, isTask: false, itemType: 'group', fromGroupDrag: false, layout });
+            items.forEach(item =>
+                this.moveEnded$.next({
+                    id: item.id, isTask: item.isTask,
+                    itemType: item.isTask ? 'task' : 'note',
+                    fromGroupDrag: true,
+                    layout: item.layout,
+                })
+            );
         };
 
         document.addEventListener('pointermove', onMove);
@@ -114,6 +172,7 @@ export class CanvasInteractionService {
         let layout = { ...currentLayout };
         let lastX = e.clientX;
         let lastY = e.clientY;
+        const itemType: DragItemType = isTask ? 'task' : 'note';
 
         const onMove = (me: PointerEvent) => {
             const dx = (me.clientX - lastX) / zoom;
@@ -121,13 +180,46 @@ export class CanvasInteractionService {
             lastX = me.clientX;
             lastY = me.clientY;
             layout = applyResize(layout, handle, dx, dy);
-            this.resizeDragging$.next({ id, isTask, layout: { ...layout } });
+            this.resizeDragging$.next({ id, isTask, itemType, layout: { ...layout } });
         };
 
         const onUp = () => {
             document.removeEventListener('pointermove', onMove);
             document.removeEventListener('pointerup', onUp);
-            this.resizeEnded$.next({ id, isTask, layout });
+            this.resizeEnded$.next({ id, isTask, itemType, layout });
+        };
+
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
+    }
+
+    // --- Resize group ---
+    startResizeGroup(
+        e: PointerEvent,
+        id: string,
+        handle: ResizeHandle,
+        currentLayout: Layout,
+    ): void {
+        e.stopPropagation();
+        e.preventDefault();
+        const { zoom } = this.viewport.current;
+        let layout = { ...currentLayout };
+        let lastX = e.clientX;
+        let lastY = e.clientY;
+
+        const onMove = (me: PointerEvent) => {
+            const dx = (me.clientX - lastX) / zoom;
+            const dy = (me.clientY - lastY) / zoom;
+            lastX = me.clientX;
+            lastY = me.clientY;
+            layout = applyResize(layout, handle, dx, dy);
+            this.resizeDragging$.next({ id, isTask: false, itemType: 'group', layout: { ...layout } });
+        };
+
+        const onUp = () => {
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', onUp);
+            this.resizeEnded$.next({ id, isTask: false, itemType: 'group', layout });
         };
 
         document.addEventListener('pointermove', onMove);

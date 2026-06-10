@@ -1,0 +1,107 @@
+.group-card {
+    position: absolute;
+    box-sizing: border-box;
+    border: 2px dashed var(--color-brand-primary);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    background: rgba(59, 130, 246, 0.04);
+    transition: box-shadow 0.1s, border-color 0.1s;
+
+    &--selected {
+        border-style: solid;
+        border-color: var(--color-brand-primary);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25), 0 4px 20px rgba(0,0,0,0.12);
+    }
+
+    &__title-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 10px;
+        height: 36px;
+        cursor: move;
+        border-radius: 8px 8px 0 0;
+        background: rgba(59, 130, 246, 0.08);
+        border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+        user-select: none;
+        flex-shrink: 0;
+    }
+
+    &__icon {
+        font-size: 12px;
+        color: var(--color-brand-primary);
+        opacity: 0.7;
+        flex-shrink: 0;
+    }
+
+    &__title {
+        flex: 1;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--color-text-secondary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: move;
+    }
+
+    &__title-input {
+        flex: 1;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--color-text-primary);
+        background: var(--color-surface-card);
+        border: 1px solid var(--color-brand-primary);
+        border-radius: 4px;
+        padding: 2px 6px;
+        outline: none;
+        cursor: text;
+        min-width: 0;
+    }
+
+    &__count {
+        flex-shrink: 0;
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: var(--color-text-muted);
+        background: rgba(59, 130, 246, 0.12);
+        border-radius: 10px;
+        padding: 1px 7px;
+        min-width: 20px;
+        text-align: center;
+    }
+
+    &__body {
+        flex: 1;
+        pointer-events: none;
+    }
+}
+
+// Resize handles — same pattern as task-card
+$handle-size: 8px;
+$handle-offset: calc(-#{$handle-size} / 2);
+$handle-color: var(--color-brand-primary);
+
+.resize-handle {
+    position: absolute;
+    width: $handle-size;
+    height: $handle-size;
+    background: $handle-color;
+    border-radius: 2px;
+    opacity: 0;
+    transition: opacity 0.15s;
+
+    .group-card--selected & {
+        opacity: 1;
+    }
+
+    &--n  { top: $handle-offset; left: 50%; transform: translateX(-50%); cursor: n-resize; }
+    &--s  { bottom: $handle-offset; left: 50%; transform: translateX(-50%); cursor: s-resize; }
+    &--e  { right: $handle-offset; top: 50%; transform: translateY(-50%); cursor: e-resize; }
+    &--w  { left: $handle-offset; top: 50%; transform: translateY(-50%); cursor: w-resize; }
+    &--ne { top: $handle-offset; right: $handle-offset; cursor: ne-resize; }
+    &--nw { top: $handle-offset; left: $handle-offset; cursor: nw-resize; }
+    &--se { bottom: $handle-offset; right: $handle-offset; cursor: se-resize; }
+    &--sw { bottom: $handle-offset; left: $handle-offset; cursor: sw-resize; }
+}

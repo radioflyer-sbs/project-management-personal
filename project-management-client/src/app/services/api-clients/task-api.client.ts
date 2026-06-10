@@ -39,7 +39,7 @@ export class TaskApiClient extends ApiClientBase {
         return this.http.post<Task>(`${this.apiBaseUrl}/tasks`, data, this.buildOptions().build());
     }
 
-    update(id: string, data: Partial<{ title: string; description: string; urgency: TaskUrgency; isComplete: boolean; layout: Layout; viewState: CanvasViewState }>): Observable<Task> {
+    update(id: string, data: Partial<{ title: string; description: string; urgency: TaskUrgency; isComplete: boolean; layout: Layout; viewState: CanvasViewState; groupId: string | null; preGroupLayout: Layout | null }>): Observable<Task> {
         return this.http.put<Task>(`${this.apiBaseUrl}/tasks/${id}`, data, this.buildOptions().build());
     }
 

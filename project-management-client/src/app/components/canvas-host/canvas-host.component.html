@@ -43,6 +43,15 @@
                         <circle  cx="0" cy="0" r="2.5"      fill="rgba(90,110,155,0.65)"/>
                     </svg>
 
+                    @for (group of groups; track group._id) {
+                        <app-group-card
+                            [group]="group"
+                            [containedItems]="getGroupContainedItems(group)"
+                            [selected]="isGroupSelected(group)"
+                            (selected$)="onGroupSelected($event)"
+                            (titleChanged$)="onGroupTitleChanged(group, $event)"
+                        />
+                    }
                     @for (task of tasks; track task._id) {
                         <app-task-card
                             [task]="task"

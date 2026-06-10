@@ -13,6 +13,8 @@ import { createTaskRouter } from './server/tasks/tasks.router';
 import { createNoteRouter } from './server/notes/notes.router';
 import { createLlmRouter } from './server/llm/llm.router';
 import { LlmModelDbService } from './database/llm/llm-model-db.service';
+import { createGroupRouter } from './server/groups/groups.router';
+import { GroupDbService } from './database/groups/group-db.service';
 
 export async function initializeExpressApp(container: Container): Promise<Application> {
     const config = await getAppConfig();
@@ -26,10 +28,12 @@ export async function initializeExpressApp(container: Container): Promise<Applic
     const noteDb         = await container.getAsync<NoteDbService>(TOKENS.NoteDbService);
     const cascadeDelete  = await container.getAsync<CascadeDeleteService>(TOKENS.CascadeDeleteService);
     const llmModelDb     = await container.getAsync<LlmModelDbService>(TOKENS.LlmModelDbService);
+    const groupDb        = await container.getAsync<GroupDbService>(TOKENS.GroupDbService);
 
     app.use('/api/projects', createProjectRouter(projectDb, cascadeDelete));
     app.use('/api/tasks',    createTaskRouter(taskDb, cascadeDelete, noteDb));
     app.use('/api/notes',    createNoteRouter(noteDb, cascadeDelete));
+    app.use('/api/groups',   createGroupRouter(groupDb));
     app.use('/api/llm',      createLlmRouter(llmModelDb));
 
     app.use((_req: Request, res: Response) => {

@@ -27,12 +27,14 @@ const CreateTaskSchema = z.object({
 });
 
 const UpdateTaskSchema = z.object({
-    title:       z.string().min(1).optional(),
-    description: z.string().optional(),
-    urgency:     z.nativeEnum(TaskUrgency).optional(),
-    isComplete:  z.boolean().optional(),
-    layout:      LayoutSchema.optional(),
-    viewState:   z.object({ panX: z.number(), panY: z.number(), zoom: z.number() }).optional(),
+    title:          z.string().min(1).optional(),
+    description:    z.string().optional(),
+    urgency:        z.nativeEnum(TaskUrgency).optional(),
+    isComplete:     z.boolean().optional(),
+    layout:         LayoutSchema.optional(),
+    viewState:      z.object({ panX: z.number(), panY: z.number(), zoom: z.number() }).optional(),
+    groupId:        z.string().nullable().optional(),
+    preGroupLayout: LayoutSchema.nullable().optional(),
 });
 
 export function createTaskRouter(
@@ -116,7 +118,13 @@ export function createTaskRouter(
         try {
             const existing = await taskDb.findById(new ObjectId(String(req.params.id)));
             if (!existing) { res.status(404).json({ message: 'Task not found' }); return; }
-            const updated = await taskDb.update({ ...existing, ...parse.data, _id: existing._id });
+            const { groupId, preGroupLayout, ...rest } = parse.data;
+            const merged: any = { ...existing, ...rest, _id: existing._id };
+            if (groupId === null) { delete merged.groupId; delete merged.preGroupLayout; }
+            else if (groupId !== undefined) { merged.groupId = groupId; }
+            if (preGroupLayout === null) { delete merged.preGroupLayout; }
+            else if (preGroupLayout !== undefined) { merged.preGroupLayout = preGroupLayout; }
+            const updated = await taskDb.update(merged);
             res.json(updated);
         } catch (err) {
             res.status(500).json({ message: 'Failed to update task' });

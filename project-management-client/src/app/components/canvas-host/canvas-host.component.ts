@@ -1,7 +1,8 @@
 import { Component, inject, OnInit, OnDestroy, ElementRef, ViewChild, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, NavigationEnd } from '@angular/router';
-import { takeUntil, filter } from 'rxjs/operators';
+import { takeUntil, filter, catchError } from 'rxjs/operators';
+import { of } from 'rxjs';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
@@ -19,10 +20,12 @@ import { DeletionService } from '../../services/deletion.service';
 import { TaskApiClient } from '../../services/api-clients/task-api.client';
 import { TaskCardComponent } from '../canvas/task-card/task-card.component';
 import { NoteCardComponent } from '../canvas/note-card/note-card.component';
+import { GroupCardComponent } from '../canvas/group-card/group-card.component';
 import { DetailsPaneComponent } from '../details-pane/details-pane.component';
 import { CanvasContextMenuComponent, ContextMenuItem } from '../canvas/canvas-context-menu/canvas-context-menu.component';
 import { Task } from '../../../model/shared-models/task.model';
 import { Note } from '../../../model/shared-models/note.model';
+import { Group } from '../../../model/shared-models/group.model';
 import { Project } from '../../../model/shared-models/project.model';
 import { Layout } from '../../../model/shared-models/layout.model';
 import { TaskCounts } from '../../../model/shared-models/task-counts.model';
@@ -33,7 +36,8 @@ import { TaskCounts } from '../../../model/shared-models/task-counts.model';
     imports: [
         CommonModule, FormsModule,
         ButtonModule, DialogModule, InputTextModule, TextareaModule, ConfirmDialogModule,
-        TaskCardComponent, NoteCardComponent, DetailsPaneComponent, CanvasContextMenuComponent,
+        TaskCardComponent, NoteCardComponent, GroupCardComponent,
+        DetailsPaneComponent, CanvasContextMenuComponent,
     ],
     templateUrl: './canvas-host.component.html',
     styleUrl: './canvas-host.component.scss',
@@ -56,8 +60,9 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
     private readonly deletion    = inject(DeletionService);
     private readonly taskApi     = inject(TaskApiClient);
 
-    tasks:      Task[]  = [];
-    notes:      Note[]  = [];
+    tasks:      Task[]   = [];
+    notes:      Note[]   = [];
+    groups:     Group[]  = [];
     taskCounts: Record<string, TaskCounts> = {};
     hostProject: Project | null = null;
     hostTask: Task | null = null;
@@ -66,12 +71,10 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
     projectId = '';
     taskIds: string[] = [];
 
-    // Toolbar edit dialog
     showEditDialog  = false;
     editName        = '';
     editDescription = '';
 
-    // Context menu
     contextMenuVisible = false;
     contextMenuX = 0;
     contextMenuY = 0;
@@ -79,14 +82,15 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
     contextMenuCanvasY = 0;
 
     readonly contextMenuItems: ContextMenuItem[] = [
-        { label: 'Add Task', icon: 'pi-plus-circle', action: 'add-task' },
-        { label: 'Add Note', icon: 'pi-file-plus',   action: 'add-note' },
+        { label: 'Add Task',  icon: 'pi-plus-circle', action: 'add-task'  },
+        { label: 'Add Note',  icon: 'pi-file-plus',   action: 'add-note'  },
+        { label: 'Add Group', icon: 'pi-th-large',    action: 'add-group' },
     ];
 
     ngOnInit(): void {
-        // One-time subscriptions — stay alive for the lifetime of the component.
         this.canvasData.tasks.pipe(takeUntil(this.ngDestroy$)).subscribe(t => this.tasks = t);
         this.canvasData.notes.pipe(takeUntil(this.ngDestroy$)).subscribe(n => this.notes = n);
+        this.canvasData.groups.pipe(takeUntil(this.ngDestroy$)).subscribe(g => this.groups = g);
         this.canvasData.taskCounts.pipe(takeUntil(this.ngDestroy$)).subscribe(c => this.taskCounts = c);
 
         this.viewport.persistNeeded$.pipe(takeUntil(this.ngDestroy$)).subscribe(vs => {
@@ -95,35 +99,69 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         });
 
         this.interaction.moveEnded$.pipe(takeUntil(this.ngDestroy$)).subscribe(event => {
+            if (event.itemType === 'group') {
+                this.groups = this.groups.map(g =>
+                    (g._id as any) === event.id ? { ...g, layout: event.layout } : g
+                );
+                this.canvasData.updateGroupLayout(event.id, event.layout);
+                return;
+            }
+
+            if (event.fromGroupDrag) {
+                if (event.isTask) {
+                    this.tasks = this.tasks.map(t =>
+                        (t._id as any) === event.id ? { ...t, layout: event.layout } : t
+                    );
+                    this.canvasData.updateTaskLayout(event.id, event.layout);
+                } else {
+                    this.notes = this.notes.map(n =>
+                        (n._id as any) === event.id ? { ...n, layout: event.layout } : n
+                    );
+                    this.canvasData.updateNoteLayout(event.id, event.layout);
+                }
+                return;
+            }
+
             if (event.isTask) {
                 this.tasks = this.tasks.map(t =>
-                    t._id === event.id ? { ...t, layout: event.layout } : t
+                    (t._id as any) === event.id ? { ...t, layout: event.layout } : t
                 );
-                this.canvasData.updateTaskLayout(event.id, event.layout);
+                const task = this.tasks.find(t => (t._id as any) === event.id);
+                if (task) { this.handleTaskGroupInteraction(task, event.layout); }
             } else {
                 this.notes = this.notes.map(n =>
-                    n._id === event.id ? { ...n, layout: event.layout } : n
+                    (n._id as any) === event.id ? { ...n, layout: event.layout } : n
                 );
                 this.canvasData.updateNoteLayout(event.id, event.layout);
             }
         });
 
         this.interaction.resizeEnded$.pipe(takeUntil(this.ngDestroy$)).subscribe(event => {
+            if (event.itemType === 'group') {
+                this.canvasData.relayoutGroup(event.id, this.tasks, event.layout)
+                    .pipe(takeUntil(this.ngDestroy$))
+                    .subscribe(updated => {
+                        this.tasks = this.tasks.map(t => {
+                            const u = updated.find(ut => (ut._id as any) === (t._id as any));
+                            return u ?? t;
+                        });
+                    });
+                return;
+            }
+
             if (event.isTask) {
                 this.tasks = this.tasks.map(t =>
-                    t._id === event.id ? { ...t, layout: event.layout } : t
+                    (t._id as any) === event.id ? { ...t, layout: event.layout } : t
                 );
                 this.canvasData.updateTaskLayout(event.id, event.layout);
             } else {
                 this.notes = this.notes.map(n =>
-                    n._id === event.id ? { ...n, layout: event.layout } : n
+                    (n._id as any) === event.id ? { ...n, layout: event.layout } : n
                 );
                 this.canvasData.updateNoteLayout(event.id, event.layout);
             }
         });
 
-        // Initialize now, then re-initialize whenever Angular reuses this component
-        // instance across task-depth navigations (** wildcard route reuse).
         this.initForCurrentUrl();
         this.router.events.pipe(
             filter(e => e instanceof NavigationEnd),
@@ -131,12 +169,87 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         ).subscribe(() => this.initForCurrentUrl());
     }
 
+    private handleTaskGroupInteraction(task: Task, droppedLayout: Layout): void {
+        const cx = droppedLayout.x + droppedLayout.width  / 2;
+        const cy = droppedLayout.y + droppedLayout.height / 2;
+
+        const targetGroup = this.groups.find(g => {
+            const l = g.layout;
+            return cx >= l.x && cx <= l.x + l.width && cy >= l.y && cy <= l.y + l.height;
+        }) ?? null;
+
+        const currentGroupId = task.groupId ?? null;
+        const targetGroupId  = targetGroup ? (targetGroup._id as string) : null;
+
+        if (currentGroupId === targetGroupId) {
+            if (!currentGroupId) {
+                this.canvasData.updateTaskLayout(task._id as string, droppedLayout);
+            } else {
+                // Still in same group — snap back to group-managed layout
+                this.canvasData.relayoutGroup(currentGroupId, this.tasks)
+                    .pipe(takeUntil(this.ngDestroy$))
+                    .subscribe(updated => {
+                        this.tasks = this.tasks.map(t => {
+                            const u = updated.find(ut => (ut._id as any) === (t._id as any));
+                            return u ?? t;
+                        });
+                    });
+            }
+            return;
+        }
+
+        if (currentGroupId && !targetGroup) {
+            this.canvasData.exitGroup(task._id as string, currentGroupId, droppedLayout)
+                .pipe(takeUntil(this.ngDestroy$))
+                .subscribe(({ updatedTask, updatedGroup, relayoutedTasks }) => {
+                    this.tasks = this.tasks.map(t => {
+                        if ((t._id as any) === (updatedTask._id as any)) { return updatedTask; }
+                        const r = relayoutedTasks.find(rt => (rt._id as any) === (t._id as any));
+                        return r ?? t;
+                    });
+                    this.groups = this.groups.map(g =>
+                        (g._id as any) === (updatedGroup._id as any) ? updatedGroup : g
+                    );
+                });
+            return;
+        }
+
+        if (!currentGroupId && targetGroup) {
+            this.canvasData.enterGroup(task._id as string, targetGroup._id as string)
+                .pipe(takeUntil(this.ngDestroy$))
+                .subscribe(({ updatedTasks, updatedGroup }) => {
+                    this.tasks = this.tasks.map(t => {
+                        const u = updatedTasks.find(ut => (ut._id as any) === (t._id as any));
+                        return u ?? t;
+                    });
+                    this.groups = this.groups.map(g =>
+                        (g._id as any) === (updatedGroup._id as any) ? updatedGroup : g
+                    );
+                });
+            return;
+        }
+
+        if (currentGroupId && targetGroup && currentGroupId !== targetGroupId) {
+            this.canvasData.moveTaskBetweenGroups(task._id as string, currentGroupId, targetGroupId!)
+                .pipe(takeUntil(this.ngDestroy$))
+                .subscribe(({ updatedTasks, updatedGroups }) => {
+                    this.tasks = this.tasks.map(t => {
+                        const u = updatedTasks.find(ut => (ut._id as any) === (t._id as any));
+                        return u ?? t;
+                    });
+                    this.groups = this.groups.map(g => {
+                        const u = updatedGroups.find(ug => (ug._id as any) === (g._id as any));
+                        return u ?? g;
+                    });
+                });
+        }
+    }
+
     private initForCurrentUrl(): void {
         this.navigation.parseCurrentUrl();
         const newProjectId = this.navigation.currentProjectId ?? '';
         const newTaskIds   = this.navigation.currentTaskIds;
 
-        // Guard against spurious NavigationEnd fires with the same URL.
         if (newProjectId === this.projectId
             && newTaskIds.length === this.taskIds.length
             && newTaskIds.every((id, i) => id === this.taskIds[i])) {
@@ -156,15 +269,19 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         this.canvasData.initialize(this.projectId, parentTaskId, this.taskIds);
 
         if (parentTaskId) {
-            this.taskApi.getById(parentTaskId).subscribe(task => {
+            this.taskApi.getById(parentTaskId).pipe(
+                catchError(() => of(null)),
+            ).subscribe(task => {
                 this.hostTask = task;
-                this.viewport.restore(task.viewState);
+                this.viewport.restore(task?.viewState);
                 this.loading = false;
             });
         } else {
-            this.projects.getById(this.projectId).subscribe(project => {
+            this.projects.getById(this.projectId).pipe(
+                catchError(() => of(null)),
+            ).subscribe(project => {
                 this.hostProject = project;
-                this.viewport.restore(project.viewState);
+                this.viewport.restore(project?.viewState);
                 this.loading = false;
             });
         }
@@ -175,9 +292,7 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         super.ngOnDestroy();
     }
 
-    get transform(): string {
-        return this.viewport.cssTransform;
-    }
+    get transform(): string { return this.viewport.cssTransform; }
 
     get gridStyle(): Record<string, string> {
         const { panX, panY, zoom } = this.viewport.current;
@@ -188,11 +303,7 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         };
     }
 
-    // --- Canvas events ---
-
-    onCanvasMousedown(e: MouseEvent): void {
-        this.interaction.onCanvasMousedown(e);
-    }
+    onCanvasMousedown(e: MouseEvent): void { this.interaction.onCanvasMousedown(e); }
 
     onCanvasWheel(e: WheelEvent): void {
         if (this.canvasAreaRef) {
@@ -201,7 +312,6 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
     }
 
     onCanvasClick(e: MouseEvent): void {
-        // Click on empty canvas → clear selection, show host
         this.selection.clear();
         this.contextMenuVisible = false;
     }
@@ -227,10 +337,11 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         } else if (action === 'add-note') {
             this.canvasData.addNote(this.contextMenuCanvasX, this.contextMenuCanvasY)
                 .subscribe(note => this.selection.select({ type: 'note', item: note }));
+        } else if (action === 'add-group') {
+            this.canvasData.addGroup(this.contextMenuCanvasX, this.contextMenuCanvasY)
+                .subscribe(group => this.selection.select({ type: 'group', item: group }));
         }
     }
-
-    // --- Card events ---
 
     onTaskSelected(task: Task): void {
         this.canvasData.bringToFront(task._id as string, true);
@@ -240,6 +351,18 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
     onNoteSelected(note: Note): void {
         this.canvasData.bringToFront(note._id as string, false);
         this.selection.select({ type: 'note', item: note });
+    }
+
+    onGroupSelected(group: Group): void {
+        this.canvasData.bringGroupToFront(group._id as string);
+        this.selection.select({ type: 'group', item: group });
+    }
+
+    onGroupTitleChanged(group: Group, title: string): void {
+        this.canvasData.updateGroupTitle(group._id as string, title);
+        this.groups = this.groups.map(g =>
+            (g._id as any) === (group._id as any) ? { ...g, title } : g
+        );
     }
 
     onDrillIntoTask(task: Task): void {
@@ -257,6 +380,12 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
             });
     }
 
+    getGroupContainedItems(group: Group): Array<{ id: string; isTask: boolean; layout: Layout }> {
+        return this.tasks
+            .filter(t => group.itemIds.includes(t._id as string))
+            .map(t => ({ id: t._id as string, isTask: true, layout: t.layout }));
+    }
+
     isTaskSelected(task: Task): boolean {
         const sel = this.selection.current;
         return sel?.type === 'task' && sel.item._id === task._id;
@@ -267,11 +396,12 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         return sel?.type === 'note' && sel.item._id === note._id;
     }
 
-    // --- Toolbar ---
-
-    goBack(): void {
-        this.navigation.navigateToParent();
+    isGroupSelected(group: Group): boolean {
+        const sel = this.selection.current;
+        return sel?.type === 'group' && (sel.item._id as any) === (group._id as any);
     }
+
+    goBack(): void { this.navigation.navigateToParent(); }
 
     openEditDialog(): void {
         if (this.hostTask) {
@@ -330,6 +460,12 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
             this.deletion.deleteNote(sel.item._id as string, sel.item.title, () => {
                 this.canvasData.removeNote(sel.item._id as string);
             });
+        } else if (sel?.type === 'group') {
+            this.deletion.deleteGroup(sel.item._id as string, sel.item.title, () => {
+                this.canvasData.deleteGroup(sel.item._id as string)
+                    .pipe(takeUntil(this.ngDestroy$))
+                    .subscribe();
+            });
         }
     }
 
@@ -339,15 +475,11 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         const layouts = [
             ...this.tasks.map(t => t.layout),
             ...this.notes.map(n => n.layout),
+            ...this.groups.map(g => g.layout),
         ];
         this.viewport.zoomToFit(layouts, rect.width, rect.height);
     }
 
-    get hostDisplayName(): string {
-        return this.hostTask?.title ?? this.hostProject?.name ?? '…';
-    }
-
-    get isTaskCanvas(): boolean {
-        return !!this.hostTask;
-    }
+    get hostDisplayName(): string { return this.hostTask?.title ?? this.hostProject?.name ?? '…'; }
+    get isTaskCanvas(): boolean   { return !!this.hostTask; }
 }

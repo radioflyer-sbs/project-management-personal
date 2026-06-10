@@ -3,11 +3,13 @@ import { BehaviorSubject, Observable } from 'rxjs';
 import { Task } from '../../model/shared-models/task.model';
 import { Note } from '../../model/shared-models/note.model';
 import { Project } from '../../model/shared-models/project.model';
+import { Group } from '../../model/shared-models/group.model';
 
 export type SelectedItem =
     | { type: 'project'; item: Project }
     | { type: 'task';    item: Task }
     | { type: 'note';    item: Note }
+    | { type: 'group';   item: Group }
     | null;
 
 @Injectable({ providedIn: 'root' })
