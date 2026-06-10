@@ -353,6 +353,16 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         this.selection.select({ type: 'note', item: note });
     }
 
+    onNoteEdited(note: Note, edit: { title: string; details: string }): void {
+        const current = this.canvasData.getNoteById(note._id as string) ?? note;
+        this.canvasData.updateNote({ ...current, title: edit.title, details: edit.details })
+            .subscribe(result => {
+                if (this.isNoteSelected(result)) {
+                    this.selection.select({ type: 'note', item: result });
+                }
+            });
+    }
+
     onGroupSelected(group: Group): void {
         this.canvasData.bringGroupToFront(group._id as string);
         this.selection.select({ type: 'group', item: group });
@@ -363,6 +373,17 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         this.groups = this.groups.map(g =>
             (g._id as any) === (group._id as any) ? { ...g, title } : g
         );
+    }
+
+    onGroupLayoutConfigChanged(group: Group, config: { direction: 'vertical' | 'horizontal'; wrap: boolean }): void {
+        this.canvasData.updateGroupLayoutConfig(group._id as string, config.direction, config.wrap, this.tasks)
+            .pipe(takeUntil(this.ngDestroy$))
+            .subscribe(updatedTasks => {
+                this.tasks = this.tasks.map(t => {
+                    const u = updatedTasks.find(ut => (ut._id as any) === (t._id as any));
+                    return u ?? t;
+                });
+            });
     }
 
     onDrillIntoTask(task: Task): void {

@@ -7,10 +7,44 @@
 >
     <div class="note-card__header">
         <i class="pi pi-file-edit note-card__icon"></i>
-        <span class="note-card__title">{{ note.title }}</span>
+        <div class="note-card__title-wrap">
+            @if (editingTitle) {
+                <input
+                    #titleInput
+                    class="note-card__title note-card__title--editing"
+                    [(ngModel)]="localTitle"
+                    (blur)="commitTitle()"
+                    (keydown.enter)="$event.preventDefault(); commitTitle()"
+                    (keydown.escape)="cancelTitle()"
+                    (mousedown)="$event.stopPropagation()"
+                />
+            } @else {
+                <span class="note-card__title" (dblclick)="startEditTitle($event)">{{ localTitle }}</span>
+                <button class="note-card__edit-hint" title="Edit title" (click)="startEditTitle($event)">
+                    <i class="pi pi-pencil"></i>
+                </button>
+            }
+        </div>
     </div>
     <div class="note-card__divider"></div>
-    <div class="note-card__body" [ngStyle]="bodyStyle">{{ note.details }}</div>
+
+    <div class="note-card__body-wrap" [ngStyle]="bodyStyle">
+        @if (editingDetails) {
+            <textarea
+                #detailsInput
+                class="note-card__body--editing"
+                [(ngModel)]="localDetails"
+                (blur)="commitDetails()"
+                (keydown.escape)="cancelDetails()"
+                (mousedown)="$event.stopPropagation()"
+            ></textarea>
+        } @else {
+            <div class="note-card__body" (dblclick)="startEditDetails($event)">{{ localDetails }}</div>
+            <button class="note-card__body-edit-hint" title="Edit details" (click)="startEditDetails($event)">
+                <i class="pi pi-pencil"></i>
+            </button>
+        }
+    </div>
 
     @for (handle of resizeHandles; track handle) {
         <div

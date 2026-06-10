@@ -22,8 +22,9 @@ export class GroupCardComponent extends ComponentBase implements OnInit, OnChang
     @Input() containedItems: Array<{ id: string; isTask: boolean; layout: Layout }> = [];
     @Input() selected = false;
 
-    @Output() selected$     = new EventEmitter<Group>();
-    @Output() titleChanged$ = new EventEmitter<string>();
+    @Output() selected$           = new EventEmitter<Group>();
+    @Output() titleChanged$       = new EventEmitter<string>();
+    @Output() layoutConfigChanged$ = new EventEmitter<{ direction: 'vertical' | 'horizontal'; wrap: boolean }>();
 
     private readonly interaction = inject(CanvasInteractionService);
     private readonly zone        = inject(NgZone);
@@ -132,5 +133,21 @@ export class GroupCardComponent extends ComponentBase implements OnInit, OnChang
         );
     }
 
-    readonly resizeHandles: ResizeHandle[] = ['e', 'w'];
+    get resizeHandles(): ResizeHandle[] {
+        const dir  = this.group?.layoutDirection ?? 'vertical';
+        const wrap = this.group?.layoutWrap ?? false;
+        return (dir === 'horizontal' && !wrap) ? ['n', 's'] : ['e', 'w'];
+    }
+
+    setLayoutConfig(direction: 'vertical' | 'horizontal', wrap: boolean, e: MouseEvent): void {
+        e.stopPropagation();
+        this.layoutConfigChanged$.emit({ direction, wrap });
+    }
+
+    get layoutMode(): 'vertical' | 'horizontal' | 'wrap' {
+        const dir  = this.group?.layoutDirection ?? 'vertical';
+        const wrap = this.group?.layoutWrap ?? false;
+        if (dir === 'horizontal' && wrap) { return 'wrap'; }
+        return dir === 'horizontal' ? 'horizontal' : 'vertical';
+    }
 }

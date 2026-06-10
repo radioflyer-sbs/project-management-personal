@@ -11,3 +11,4 @@ export const GROUP_TITLE_HEIGHT = 36;
 export const GROUP_PADDING = 12;
 export const GROUP_CARD_GAP = 8;
 export const GROUP_ITEM_HEIGHT = DEFAULT_ITEM_HEIGHT;
+export const GROUP_ITEM_WIDTH  = DEFAULT_ITEM_WIDTH;

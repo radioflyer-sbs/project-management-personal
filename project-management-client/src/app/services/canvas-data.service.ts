@@ -15,8 +15,9 @@ import { CanvasViewState } from '../../model/shared-models/canvas-view-state.mod
 import {
     DEFAULT_ITEM_WIDTH, DEFAULT_ITEM_HEIGHT,
     DEFAULT_GROUP_WIDTH, DEFAULT_GROUP_HEIGHT,
-    GROUP_TITLE_HEIGHT, GROUP_PADDING, GROUP_CARD_GAP, GROUP_ITEM_HEIGHT,
-    MIN_ITEM_WIDTH,
+    GROUP_TITLE_HEIGHT, GROUP_PADDING, GROUP_CARD_GAP,
+    GROUP_ITEM_HEIGHT, GROUP_ITEM_WIDTH,
+    MIN_ITEM_WIDTH, MIN_ITEM_HEIGHT,
 } from '../../model/shared-models/canvas-constants';
 
 /** Manages the data (tasks, notes, groups) for one active canvas. Provided per CanvasHostComponent. */
@@ -115,11 +116,13 @@ export class CanvasDataService {
 
     addGroup(canvasX: number, canvasY: number): Observable<Group> {
         const dto: CreateGroupDto = {
-            projectId:    this.projectId,
-            parentTaskId: this.parentTaskId,
-            title:        'Group',
-            layout:       { x: canvasX, y: canvasY, width: DEFAULT_GROUP_WIDTH, height: DEFAULT_GROUP_HEIGHT, zIndex: 1 },
-            itemIds:      [],
+            projectId:       this.projectId,
+            parentTaskId:    this.parentTaskId,
+            title:           'Group',
+            layout:          { x: canvasX, y: canvasY, width: DEFAULT_GROUP_WIDTH, height: DEFAULT_GROUP_HEIGHT, zIndex: 1 },
+            itemIds:         [],
+            layoutDirection: 'vertical',
+            layoutWrap:      false,
         };
         return this.groupApi.create(dto).pipe(
             tap(group => this.groups$.next([...this.groups$.getValue(), group]))
@@ -219,24 +222,83 @@ export class CanvasDataService {
 
     // --- Group membership management ---
 
-    private computeGroupItemLayouts(group: Group, tasks: Task[]): Layout[] {
-        const n = tasks.length;
-        if (n === 0) { return []; }
-        const cardWidth = Math.max(MIN_ITEM_WIDTH, group.layout.width - 2 * GROUP_PADDING);
-        return tasks.map((_, i) => ({
-            x:      group.layout.x + GROUP_PADDING,
-            y:      group.layout.y + GROUP_TITLE_HEIGHT + GROUP_PADDING + i * (GROUP_ITEM_HEIGHT + GROUP_CARD_GAP),
-            width:  cardWidth,
-            height: GROUP_ITEM_HEIGHT,
-            zIndex: group.layout.zIndex + 1 + i,
-        }));
-    }
+    /**
+     * Unified layout engine. Returns the auto-computed group layout and the
+     * absolute Layout for each task. `resizeOverride` carries the user-dragged
+     * dimensions; the auto dimension (height for vertical/wrap, width for
+     * horizontal-no-wrap) is always replaced with the computed value.
+     */
+    private computeGroupLayout(
+        group: Group,
+        tasks: Task[],
+        resizeOverride?: Layout,
+    ): { itemLayouts: Layout[]; groupLayout: Layout } {
+        const dir  = group.layoutDirection ?? 'vertical';
+        const wrap = group.layoutWrap ?? false;
+        const n    = tasks.length;
 
-    private computeMinGroupHeight(itemCount: number): number {
-        if (itemCount === 0) { return DEFAULT_GROUP_HEIGHT; }
-        return GROUP_TITLE_HEIGHT + 2 * GROUP_PADDING
-            + itemCount * GROUP_ITEM_HEIGHT
-            + (itemCount - 1) * GROUP_CARD_GAP;
+        // Apply user-controlled dimension from resize, leave the auto-dimension alone
+        let base = { ...group.layout };
+        if (resizeOverride) {
+            if (dir === 'horizontal' && !wrap) {
+                // N/S resize → user controls height
+                base = { ...base, x: resizeOverride.x, y: resizeOverride.y, height: resizeOverride.height };
+            } else {
+                // E/W resize → user controls width
+                base = { ...base, x: resizeOverride.x, y: resizeOverride.y, width: resizeOverride.width };
+            }
+        }
+
+        if (dir === 'vertical') {
+            const height = n === 0 ? DEFAULT_GROUP_HEIGHT
+                : GROUP_TITLE_HEIGHT + 2 * GROUP_PADDING + n * GROUP_ITEM_HEIGHT + (n - 1) * GROUP_CARD_GAP;
+            const cardWidth = Math.max(MIN_ITEM_WIDTH, base.width - 2 * GROUP_PADDING);
+            const groupLayout = { ...base, height };
+            const itemLayouts = tasks.map((_, i) => ({
+                x:      base.x + GROUP_PADDING,
+                y:      base.y + GROUP_TITLE_HEIGHT + GROUP_PADDING + i * (GROUP_ITEM_HEIGHT + GROUP_CARD_GAP),
+                width:  cardWidth,
+                height: GROUP_ITEM_HEIGHT,
+                zIndex: base.zIndex + 1 + i,
+            }));
+            return { itemLayouts, groupLayout };
+        }
+
+        if (!wrap) {
+            // Horizontal no-wrap: width is auto, height is user-controlled
+            const cardHeight = Math.max(MIN_ITEM_HEIGHT, base.height - GROUP_TITLE_HEIGHT - 2 * GROUP_PADDING);
+            const width = n === 0 ? DEFAULT_GROUP_WIDTH
+                : 2 * GROUP_PADDING + n * GROUP_ITEM_WIDTH + (n - 1) * GROUP_CARD_GAP;
+            const groupLayout = { ...base, width };
+            const itemLayouts = tasks.map((_, i) => ({
+                x:      base.x + GROUP_PADDING + i * (GROUP_ITEM_WIDTH + GROUP_CARD_GAP),
+                y:      base.y + GROUP_TITLE_HEIGHT + GROUP_PADDING,
+                width:  GROUP_ITEM_WIDTH,
+                height: cardHeight,
+                zIndex: base.zIndex + 1 + i,
+            }));
+            return { itemLayouts, groupLayout };
+        }
+
+        // Horizontal wrap: width is user-controlled, height is auto from row count
+        const itemsPerRow = Math.max(1,
+            Math.floor((base.width - 2 * GROUP_PADDING + GROUP_CARD_GAP) / (GROUP_ITEM_WIDTH + GROUP_CARD_GAP)));
+        const numRows  = n === 0 ? 0 : Math.ceil(n / itemsPerRow);
+        const height   = n === 0 ? DEFAULT_GROUP_HEIGHT
+            : GROUP_TITLE_HEIGHT + 2 * GROUP_PADDING + numRows * GROUP_ITEM_HEIGHT + Math.max(0, numRows - 1) * GROUP_CARD_GAP;
+        const groupLayout = { ...base, height };
+        const itemLayouts = tasks.map((_, i) => {
+            const row = Math.floor(i / itemsPerRow);
+            const col = i % itemsPerRow;
+            return {
+                x:      base.x + GROUP_PADDING + col * (GROUP_ITEM_WIDTH + GROUP_CARD_GAP),
+                y:      base.y + GROUP_TITLE_HEIGHT + GROUP_PADDING + row * (GROUP_ITEM_HEIGHT + GROUP_CARD_GAP),
+                width:  GROUP_ITEM_WIDTH,
+                height: GROUP_ITEM_HEIGHT,
+                zIndex: base.zIndex + 1 + i,
+            };
+        });
+        return { itemLayouts, groupLayout };
     }
 
     enterGroup(taskId: string, groupId: string): Observable<{ updatedTasks: Task[]; updatedGroup: Group }> {
@@ -245,18 +307,17 @@ export class CanvasDataService {
         if (!task || !group) { return of({ updatedTasks: [], updatedGroup: group! }); }
 
         const preGroupLayout = task.preGroupLayout ?? { ...task.layout };
-        const newItemIds = [...group.itemIds.filter(id => id !== taskId), taskId];
-        const newGroupLayout = { ...group.layout, height: this.computeMinGroupHeight(newItemIds.length) };
-        const updatedGroup: Group = { ...group, itemIds: newItemIds, layout: newGroupLayout };
-
-        const allTasks = this.tasks$.getValue();
+        const newItemIds  = [...group.itemIds.filter(id => id !== taskId), taskId];
+        const allTasks    = this.tasks$.getValue();
         const groupTasks: Task[] = newItemIds.map(id => {
             if (id === taskId) { return { ...task, groupId, preGroupLayout }; }
             return allTasks.find(t => (t._id as any) === id)!;
         }).filter(Boolean);
 
-        const layouts = this.computeGroupItemLayouts(updatedGroup, groupTasks);
-        const updatedTasks = groupTasks.map((t, i) => ({ ...t, layout: layouts[i] }));
+        const { itemLayouts, groupLayout } = this.computeGroupLayout(
+            { ...group, itemIds: newItemIds }, groupTasks);
+        const updatedGroup: Group = { ...group, itemIds: newItemIds, layout: groupLayout };
+        const updatedTasks = groupTasks.map((t, i) => ({ ...t, layout: itemLayouts[i] }));
 
         this.tasks$.next(allTasks.map(t => {
             const u = updatedTasks.find(ut => (ut._id as any) === (t._id as any));
@@ -265,7 +326,7 @@ export class CanvasDataService {
         this.groups$.next(this.groups$.getValue().map(g => (g._id as any) === groupId ? updatedGroup : g));
 
         return forkJoin([
-            this.groupApi.update(groupId, { itemIds: newItemIds, layout: newGroupLayout }),
+            this.groupApi.update(groupId, { itemIds: newItemIds, layout: groupLayout }),
             ...updatedTasks.map(t => this.taskApi.update(t._id as string, {
                 layout: t.layout,
                 groupId: (t as any).groupId ?? null,
@@ -296,13 +357,13 @@ export class CanvasDataService {
         const updatedTask: Task = { ...taskRest, layout: exitLayout };
 
         const newItemIds     = group.itemIds.filter(id => id !== taskId);
-        const newGroupLayout = { ...group.layout, height: this.computeMinGroupHeight(newItemIds.length) };
-        const updatedGroup   = { ...group, itemIds: newItemIds, layout: newGroupLayout };
+        const allTasks       = this.tasks$.getValue();
+        const remainingTasks = newItemIds.map(id => allTasks.find(t => (t._id as any) === id)!).filter(Boolean);
 
-        const allTasks        = this.tasks$.getValue();
-        const remainingTasks  = newItemIds.map(id => allTasks.find(t => (t._id as any) === id)!).filter(Boolean);
-        const layouts         = this.computeGroupItemLayouts(updatedGroup, remainingTasks);
-        const relayoutedTasks = remainingTasks.map((t, i) => ({ ...t, layout: layouts[i] }));
+        const { itemLayouts, groupLayout } = this.computeGroupLayout(
+            { ...group, itemIds: newItemIds }, remainingTasks);
+        const updatedGroup    = { ...group, itemIds: newItemIds, layout: groupLayout };
+        const relayoutedTasks = remainingTasks.map((t, i) => ({ ...t, layout: itemLayouts[i] }));
 
         this.tasks$.next(allTasks.map(t => {
             if ((t._id as any) === taskId) { return updatedTask; }
@@ -312,7 +373,7 @@ export class CanvasDataService {
         this.groups$.next(this.groups$.getValue().map(g => (g._id as any) === groupId ? updatedGroup : g));
 
         return forkJoin([
-            this.groupApi.update(groupId, { itemIds: newItemIds, layout: newGroupLayout }),
+            this.groupApi.update(groupId, { itemIds: newItemIds, layout: groupLayout }),
             this.taskApi.update(taskId, { layout: exitLayout, groupId: null, preGroupLayout: null }),
             ...relayoutedTasks.map(t => this.taskApi.update(t._id as string, { layout: t.layout })),
         ]).pipe(map(() => ({ updatedTask, updatedGroup, relayoutedTasks })));
@@ -329,20 +390,20 @@ export class CanvasDataService {
 
         const fromItemIds = fromGroup.itemIds.filter(id => id !== taskId);
         const toItemIds   = [...toGroup.itemIds.filter(id => id !== taskId), taskId];
-        const updFromGroup: Group = { ...fromGroup, itemIds: fromItemIds, layout: { ...fromGroup.layout, height: this.computeMinGroupHeight(fromItemIds.length) } };
-        const updToGroup:   Group = { ...toGroup,   itemIds: toItemIds,   layout: { ...toGroup.layout,   height: this.computeMinGroupHeight(toItemIds.length)   } };
 
-        const allTasks     = this.tasks$.getValue();
+        const allTasks    = this.tasks$.getValue();
         const movedTask: Task = { ...task, groupId: toGroupId };
 
         const toTasks: Task[] = toItemIds.map(id =>
             id === taskId ? movedTask : (allTasks.find(t => (t._id as any) === id)!)
         ).filter(Boolean);
-
         const fromTasks = fromItemIds.map(id => allTasks.find(t => (t._id as any) === id)!).filter(Boolean);
 
-        const toLayouts   = this.computeGroupItemLayouts(updToGroup,   toTasks);
-        const fromLayouts = this.computeGroupItemLayouts(updFromGroup, fromTasks);
+        const { itemLayouts: toLayouts,   groupLayout: toLayout   } = this.computeGroupLayout({ ...toGroup,   itemIds: toItemIds   }, toTasks);
+        const { itemLayouts: fromLayouts, groupLayout: fromLayout  } = this.computeGroupLayout({ ...fromGroup, itemIds: fromItemIds }, fromTasks);
+
+        const updFromGroup: Group = { ...fromGroup, itemIds: fromItemIds, layout: fromLayout };
+        const updToGroup:   Group = { ...toGroup,   itemIds: toItemIds,   layout: toLayout   };
 
         const updatedToTasks   = toTasks.map((t, i)   => ({ ...t, layout: toLayouts[i]   }));
         const updatedFromTasks = fromTasks.map((t, i)  => ({ ...t, layout: fromLayouts[i] }));
@@ -376,21 +437,16 @@ export class CanvasDataService {
             .map(id => currentTasks.find(t => (t._id as any) === id))
             .filter((t): t is Task => !!t);
 
-        // Apply any new x/y/width from a resize event, then auto-compute height
-        const baseLayout = resizeLayout
-            ? { ...existing.layout, x: resizeLayout.x, y: resizeLayout.y, width: resizeLayout.width }
-            : existing.layout;
-        const finalLayout = { ...baseLayout, height: this.computeMinGroupHeight(groupTasks.length) };
-        const group = { ...existing, layout: finalLayout };
+        const { itemLayouts, groupLayout } = this.computeGroupLayout(existing, groupTasks, resizeLayout);
+        const group = { ...existing, layout: groupLayout };
 
         this.groups$.next(this.groups$.getValue().map(g => (g._id as any) === groupId ? group : g));
 
         if (groupTasks.length === 0) {
-            return this.groupApi.update(groupId, { layout: finalLayout }).pipe(map(() => []));
+            return this.groupApi.update(groupId, { layout: groupLayout }).pipe(map(() => []));
         }
 
-        const layouts      = this.computeGroupItemLayouts(group, groupTasks);
-        const updatedTasks = groupTasks.map((t, i) => ({ ...t, layout: layouts[i] }));
+        const updatedTasks = groupTasks.map((t, i) => ({ ...t, layout: itemLayouts[i] }));
 
         this.tasks$.next(this.tasks$.getValue().map(t => {
             const u = updatedTasks.find(ut => (ut._id as any) === (t._id as any));
@@ -398,7 +454,54 @@ export class CanvasDataService {
         }));
 
         return forkJoin([
-            this.groupApi.update(groupId, { layout: finalLayout }),
+            this.groupApi.update(groupId, { layout: groupLayout }),
+            ...updatedTasks.map(t => this.taskApi.update(t._id as string, { layout: t.layout })),
+        ]).pipe(map(() => updatedTasks));
+    }
+
+    updateGroupLayoutConfig(
+        groupId: string,
+        direction: 'vertical' | 'horizontal',
+        wrap: boolean,
+        currentTasks: Task[],
+    ): Observable<Task[]> {
+        const existing = this.groups$.getValue().find(g => (g._id as any) === groupId);
+        if (!existing) { return of([]); }
+
+        // When switching TO horizontal no-wrap, seed a sensible starting height if the
+        // current height looks like it was auto-computed for vertical layout.
+        let baseGroup = { ...existing, layoutDirection: direction as 'vertical' | 'horizontal', layoutWrap: wrap };
+        if (direction === 'horizontal' && !wrap) {
+            const minH = GROUP_TITLE_HEIGHT + MIN_ITEM_HEIGHT + 2 * GROUP_PADDING;
+            const sensibleH = GROUP_TITLE_HEIGHT + GROUP_ITEM_HEIGHT + 2 * GROUP_PADDING;
+            if (existing.layout.height < minH || existing.layoutDirection !== 'horizontal') {
+                baseGroup = { ...baseGroup, layout: { ...existing.layout, height: sensibleH } };
+            }
+        }
+
+        const groupTasks = existing.itemIds
+            .map(id => currentTasks.find(t => (t._id as any) === id))
+            .filter((t): t is Task => !!t);
+
+        const { itemLayouts, groupLayout } = this.computeGroupLayout(baseGroup, groupTasks);
+        const updatedGroup = { ...baseGroup, layout: groupLayout };
+
+        this.groups$.next(this.groups$.getValue().map(g => (g._id as any) === groupId ? updatedGroup : g));
+
+        if (groupTasks.length === 0) {
+            return this.groupApi.update(groupId, {
+                layoutDirection: direction, layoutWrap: wrap, layout: groupLayout,
+            }).pipe(map(() => []));
+        }
+
+        const updatedTasks = groupTasks.map((t, i) => ({ ...t, layout: itemLayouts[i] }));
+        this.tasks$.next(this.tasks$.getValue().map(t => {
+            const u = updatedTasks.find(ut => (ut._id as any) === (t._id as any));
+            return u ?? t;
+        }));
+
+        return forkJoin([
+            this.groupApi.update(groupId, { layoutDirection: direction, layoutWrap: wrap, layout: groupLayout }),
             ...updatedTasks.map(t => this.taskApi.update(t._id as string, { layout: t.layout })),
         ]).pipe(map(() => updatedTasks));
     }

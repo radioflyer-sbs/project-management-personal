@@ -12,17 +12,21 @@ const LayoutSchema = z.object({
 });
 
 const CreateGroupSchema = z.object({
-    projectId:    z.string().min(1),
-    parentTaskId: z.string().optional(),
-    title:        z.string().default('Group'),
-    layout:       LayoutSchema,
-    itemIds:      z.array(z.string()).default([]),
+    projectId:       z.string().min(1),
+    parentTaskId:    z.string().optional(),
+    title:           z.string().default('Group'),
+    layout:          LayoutSchema,
+    itemIds:         z.array(z.string()).default([]),
+    layoutDirection: z.enum(['vertical', 'horizontal']).default('vertical'),
+    layoutWrap:      z.boolean().default(false),
 });
 
 const UpdateGroupSchema = z.object({
-    title:   z.string().min(1).optional(),
-    layout:  LayoutSchema.optional(),
-    itemIds: z.array(z.string()).optional(),
+    title:           z.string().min(1).optional(),
+    layout:          LayoutSchema.optional(),
+    itemIds:         z.array(z.string()).optional(),
+    layoutDirection: z.enum(['vertical', 'horizontal']).optional(),
+    layoutWrap:      z.boolean().optional(),
 });
 
 export function createGroupRouter(groupDb: GroupDbService): Router {

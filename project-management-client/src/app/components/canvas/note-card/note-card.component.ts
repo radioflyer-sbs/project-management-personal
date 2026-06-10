@@ -1,5 +1,6 @@
-import { Component, Input, Output, EventEmitter, inject, OnChanges, OnInit, SimpleChanges, NgZone, ElementRef } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject, OnChanges, OnInit, SimpleChanges, NgZone, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { takeUntil } from 'rxjs/operators';
 import { ComponentBase } from '../../component-base/component-base.component';
 import { CanvasInteractionService, ResizeHandle } from '../../../services/canvas-interaction.service';
@@ -9,7 +10,7 @@ import { Layout } from '../../../../model/shared-models/layout.model';
 @Component({
     selector: 'app-note-card',
     standalone: true,
-    imports: [CommonModule],
+    imports: [CommonModule, FormsModule],
     templateUrl: './note-card.component.html',
     styleUrl: './note-card.component.scss',
 })
@@ -20,8 +21,11 @@ export class NoteCardComponent extends ComponentBase implements OnInit, OnChange
     @Input({ required: true }) note!: Note;
     @Input() selected = false;
 
-    @Output() selected$ = new EventEmitter<Note>();
-    @Output() layoutChanged$ = new EventEmitter<{ note: Note; layout: Layout }>();
+    @Output() selected$    = new EventEmitter<Note>();
+    @Output() noteEdited$  = new EventEmitter<{ title: string; details: string }>();
+
+    @ViewChild('titleInput')   private titleInputRef?: ElementRef<HTMLInputElement>;
+    @ViewChild('detailsInput') private detailsInputRef?: ElementRef<HTMLTextAreaElement>;
 
     private readonly interaction = inject(CanvasInteractionService);
     private readonly zone        = inject(NgZone);
@@ -29,6 +33,11 @@ export class NoteCardComponent extends ComponentBase implements OnInit, OnChange
 
     localLayout!: Layout;
     private isDragging = false;
+
+    editingTitle   = false;
+    editingDetails = false;
+    localTitle     = '';
+    localDetails   = '';
 
     ngOnInit(): void {
         this.zone.runOutsideAngular(() => {
@@ -69,10 +78,53 @@ export class NoteCardComponent extends ComponentBase implements OnInit, OnChange
     }
 
     ngOnChanges(changes: SimpleChanges): void {
-        if (changes['note'] && !this.isDragging) {
-            this.localLayout = { ...this.note.layout };
+        if (changes['note']) {
+            if (!this.isDragging)    { this.localLayout  = { ...this.note.layout }; }
+            if (!this.editingTitle)  { this.localTitle   = this.note.title; }
+            if (!this.editingDetails){ this.localDetails = this.note.details; }
         }
     }
+
+    // --- Inline title editing ---
+
+    startEditTitle(e: MouseEvent): void {
+        e.stopPropagation();
+        this.editingTitle = true;
+        setTimeout(() => {
+            this.titleInputRef?.nativeElement.focus();
+            this.titleInputRef?.nativeElement.select();
+        });
+    }
+
+    commitTitle(): void {
+        this.editingTitle = false;
+        this.noteEdited$.emit({ title: this.localTitle, details: this.localDetails });
+    }
+
+    cancelTitle(): void {
+        this.editingTitle = false;
+        this.localTitle = this.note.title;
+    }
+
+    // --- Inline details editing ---
+
+    startEditDetails(e: MouseEvent): void {
+        e.stopPropagation();
+        this.editingDetails = true;
+        setTimeout(() => this.detailsInputRef?.nativeElement.focus());
+    }
+
+    commitDetails(): void {
+        this.editingDetails = false;
+        this.noteEdited$.emit({ title: this.localTitle, details: this.localDetails });
+    }
+
+    cancelDetails(): void {
+        this.editingDetails = false;
+        this.localDetails = this.note.details;
+    }
+
+    // --- Card interaction ---
 
     get cardStyle(): Record<string, string> {
         const l = this.localLayout;

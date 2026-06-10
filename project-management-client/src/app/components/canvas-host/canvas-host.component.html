@@ -50,6 +50,7 @@
                             [selected]="isGroupSelected(group)"
                             (selected$)="onGroupSelected($event)"
                             (titleChanged$)="onGroupTitleChanged(group, $event)"
+                            (layoutConfigChanged$)="onGroupLayoutConfigChanged(group, $event)"
                         />
                     }
                     @for (task of tasks; track task._id) {
@@ -67,6 +68,7 @@
                             [note]="note"
                             [selected]="isNoteSelected(note)"
                             (selected$)="onNoteSelected(note)"
+                            (noteEdited$)="onNoteEdited(note, $event)"
                         />
                     }
                 </div>

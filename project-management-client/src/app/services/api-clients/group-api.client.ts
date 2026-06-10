@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiClientBase } from './api-client-base.service';
-import { Group } from '../../../model/shared-models/group.model';
+import { Group, GroupLayoutDirection } from '../../../model/shared-models/group.model';
 import { Layout } from '../../../model/shared-models/layout.model';
 
 export interface CreateGroupDto {
@@ -10,6 +10,8 @@ export interface CreateGroupDto {
     title: string;
     layout: Layout;
     itemIds: string[];
+    layoutDirection?: GroupLayoutDirection;
+    layoutWrap?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -33,7 +35,7 @@ export class GroupApiClient extends ApiClientBase {
         return this.http.post<Group>(`${this.apiBaseUrl}/groups`, data, this.buildOptions().build());
     }
 
-    update(id: string, data: Partial<{ title: string; layout: Layout; itemIds: string[] }>): Observable<Group> {
+    update(id: string, data: Partial<{ title: string; layout: Layout; itemIds: string[]; layoutDirection: GroupLayoutDirection; layoutWrap: boolean }>): Observable<Group> {
         return this.http.put<Group>(`${this.apiBaseUrl}/groups/${id}`, data, this.buildOptions().build());
     }
 
