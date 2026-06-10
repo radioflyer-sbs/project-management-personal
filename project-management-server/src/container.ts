@@ -6,6 +6,7 @@ import { ProjectDbService } from './database/projects/project-db.service';
 import { TaskDbService } from './database/tasks/task-db.service';
 import { NoteDbService } from './database/notes/note-db.service';
 import { CascadeDeleteService } from './database/cascade-delete.service';
+import { LlmModelDbService } from './database/llm/llm-model-db.service';
 
 export async function buildContainer(): Promise<Container> {
     const config = await getAppConfig();
@@ -23,6 +24,7 @@ export async function buildContainer(): Promise<Container> {
     container.bind<TaskDbService>(TOKENS.TaskDbService).to(TaskDbService).inSingletonScope();
     container.bind<NoteDbService>(TOKENS.NoteDbService).to(NoteDbService).inSingletonScope();
     container.bind<CascadeDeleteService>(TOKENS.CascadeDeleteService).to(CascadeDeleteService).inSingletonScope();
+    container.bind<LlmModelDbService>(TOKENS.LlmModelDbService).to(LlmModelDbService).inSingletonScope();
 
     return container;
 }

@@ -1,0 +1,204 @@
+.llm-settings {
+    padding: 28px 32px;
+    max-width: 860px;
+
+    &__page-title {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: var(--color-text-primary);
+        margin: 0 0 20px;
+    }
+
+    // Provider cards
+
+    &__provider-list {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    &__provider-card {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 14px 18px;
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
+        background: var(--color-surface-card);
+        min-width: 220px;
+
+        &--active {
+            border-color: var(--color-brand-primary);
+            box-shadow: 0 0 0 1px var(--color-brand-primary);
+        }
+
+        &--disabled {
+            opacity: 0.55;
+        }
+    }
+
+    &__provider-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        flex: 1;
+    }
+
+    &__provider-name {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: var(--color-text-primary);
+    }
+
+    &__provider-desc {
+        font-size: 0.78rem;
+        color: var(--color-text-muted);
+    }
+
+    // Section layout
+
+    &__section {
+        margin-bottom: 8px;
+    }
+
+    &__section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+    }
+
+    &__section-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--color-text-primary);
+        margin: 0 0 16px;
+
+        .pi { font-size: 15px; color: var(--color-brand-primary); }
+    }
+
+    .settings-shell__section-header &__section-title {
+        margin-bottom: 0;
+    }
+
+    // Connection form
+
+    &__form {
+        display: grid;
+        grid-template-columns: 1fr 200px;
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    &__label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--color-text-secondary);
+    }
+
+    &__input {
+        width: 100%;
+    }
+
+    &__number-input {
+        width: 100%;
+    }
+
+    &__actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    &__test-result {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.85rem;
+        padding: 6px 10px;
+        border-radius: 4px;
+
+        .pi { font-size: 14px; }
+
+        &--ok {
+            color: #2b9348;
+            background: #e8f5e9;
+        }
+
+        &--error {
+            color: #c0392b;
+            background: #fdecea;
+        }
+    }
+
+    // Model list
+
+    &__loading, &__empty {
+        color: var(--color-text-muted);
+        font-size: 0.875rem;
+        padding: 16px 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    &__model-list {
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    &__model-list-header {
+        display: grid;
+        grid-template-columns: 1fr 1fr 120px 80px;
+        padding: 8px 14px;
+        background: var(--color-surface-panel);
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--color-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    &__model-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 120px 80px;
+        align-items: center;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--color-border);
+        background: var(--color-surface-card);
+        transition: background 0.1s;
+
+        &:last-child { border-bottom: none; }
+        &:hover { background: var(--color-surface-panel); }
+    }
+
+    &__model-display-name {
+        font-weight: 600;
+        font-size: 0.875rem;
+        color: var(--color-text-primary);
+    }
+
+    &__model-name {
+        font-size: 0.8rem;
+        color: var(--color-text-secondary);
+        font-family: monospace;
+    }
+
+    &__model-actions {
+        display: flex;
+        gap: 2px;
+        justify-content: flex-end;
+    }
+}

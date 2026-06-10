@@ -12,6 +12,12 @@ export interface IAppConfig {
         databaseName: string;
     };
     corsAllowed: string[];
+    llm?: {
+        ollama?: {
+            baseUrl:   string;
+            timeoutMs: number;
+        };
+    };
 }
 
 /** Maps config leaf paths to overriding environment variable names. */
@@ -23,6 +29,10 @@ const CONFIG_ENV_MAP: Record<string, string> = {
 };
 
 let cachedConfig: IAppConfig | undefined;
+
+export function clearConfigCache(): void {
+    cachedConfig = undefined;
+}
 
 /** Returns the app config, reading from disk once and caching thereafter.
  *  Each leaf value can be overridden by the corresponding environment variable. */

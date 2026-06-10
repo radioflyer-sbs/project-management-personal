@@ -1,0 +1,217 @@
+.model-editor {
+    padding: 28px 32px;
+    max-width: 860px;
+
+    &__header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+
+    &__back-btn {
+        appearance: none;
+        -webkit-appearance: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        background: var(--color-surface-card);
+        color: var(--color-text-secondary);
+        cursor: pointer;
+        transition: background 0.12s, color 0.12s;
+        flex-shrink: 0;
+
+        .pi { font-size: 13px; }
+
+        &:hover {
+            background: var(--color-surface-panel);
+            color: var(--color-text-primary);
+        }
+    }
+
+    &__title {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: var(--color-text-primary);
+        margin: 0;
+    }
+
+    &__identity {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+
+        &--full {
+            grid-column: 1 / -1;
+        }
+    }
+
+    &__label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--color-text-secondary);
+    }
+
+    &__required {
+        color: #c0392b;
+    }
+
+    &__text-input {
+        width: 100%;
+    }
+
+    &__model-name-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    &__select {
+        flex: 1;
+        width: 100%;
+    }
+
+    &__select-full {
+        width: 100%;
+    }
+
+    &__fetch-error {
+        font-size: 0.78rem;
+        color: #c0392b;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        .pi { font-size: 12px; }
+    }
+
+    // Tab content
+
+    &__tab-content {
+        padding: 16px 0 0;
+    }
+
+    &__reset-row {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 16px;
+    }
+
+    &__reset-link {
+        appearance: none;
+        -webkit-appearance: none;
+        background: none;
+        border: none;
+        padding: 0;
+        font-size: 0.8rem;
+        color: var(--color-brand-primary);
+        cursor: pointer;
+        text-decoration: underline;
+
+        &:hover { opacity: 0.75; }
+    }
+
+    &__param-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+    }
+
+    &__slider-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+
+    &__slider {
+        flex: 1;
+        min-width: 0;
+    }
+
+    &__number-input {
+        width: 100%;
+    }
+
+    &__hint {
+        font-size: 0.75rem;
+        color: var(--color-text-muted);
+        margin-top: -2px;
+    }
+
+    &__chips {
+        width: 100%;
+    }
+
+    // Long-text format tab
+
+    &__longtext-header {
+        margin-bottom: 20px;
+    }
+
+    &__toggle-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+    }
+
+    &__toggle-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--color-text-primary);
+        cursor: pointer;
+    }
+
+    &__longtext-desc {
+        font-size: 0.8rem;
+        color: var(--color-text-secondary);
+        margin: 0;
+        line-height: 1.5;
+    }
+
+    &__ltf-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        transition: opacity 0.2s;
+
+        &--disabled {
+            opacity: 0.45;
+            pointer-events: none;
+        }
+    }
+
+    &__ltf-row {
+        display: grid;
+        grid-template-columns: 100px 1fr 1fr;
+        align-items: end;
+        gap: 12px;
+    }
+
+    &__ltf-speaker {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--color-text-secondary);
+        padding-bottom: 8px;
+    }
+
+    // Footer
+
+    &__footer {
+        display: flex;
+        gap: 10px;
+        margin-top: 28px;
+        padding-top: 20px;
+        border-top: 1px solid var(--color-border);
+    }
+}

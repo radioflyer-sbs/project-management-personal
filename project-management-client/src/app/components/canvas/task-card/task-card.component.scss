@@ -148,9 +148,6 @@
         padding: 6px 8px;
         font-size: 0.8rem;
         color: var(--color-text-on-card);
-        display: -webkit-box;
-        -webkit-line-clamp: 6;
-        -webkit-box-orient: vertical;
         overflow: hidden;
         white-space: pre-wrap;
     }

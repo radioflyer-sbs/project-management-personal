@@ -1,0 +1,233 @@
+<p-toast position="top-right" />
+
+<div class="model-editor">
+    <div class="model-editor__header">
+        <button class="model-editor__back-btn" (click)="cancel()" title="Back to LLM Settings">
+            <i class="pi pi-arrow-left"></i>
+        </button>
+        <h1 class="model-editor__title">{{ isCreating ? 'Add Model' : 'Edit Model' }}</h1>
+    </div>
+
+    <!-- Identity fields always visible above tabs -->
+    <div class="model-editor__identity">
+        <div class="model-editor__field">
+            <label class="model-editor__label" for="displayName">Display Name <span class="model-editor__required">*</span></label>
+            <input
+                id="displayName"
+                pInputText
+                [(ngModel)]="displayName"
+                placeholder="My Llama 3 Model"
+                class="model-editor__text-input"
+            />
+        </div>
+        <div class="model-editor__field">
+            <label class="model-editor__label" for="modelName">Model Name <span class="model-editor__required">*</span></label>
+            <div class="model-editor__model-name-row">
+                <p-select
+                    inputId="modelName"
+                    [(ngModel)]="modelName"
+                    [options]="ollamaModelOptions"
+                    [editable]="true"
+                    placeholder="Select or type model name…"
+                    [showClear]="false"
+                    styleClass="model-editor__select"
+                />
+                <p-button
+                    icon="pi pi-refresh"
+                    severity="secondary"
+                    [text]="true"
+                    [rounded]="true"
+                    [loading]="fetchingOllamaModels"
+                    pTooltip="Refresh models from Ollama"
+                    (onClick)="fetchOllamaModels()"
+                />
+            </div>
+            @if (ollamaFetchError) {
+                <span class="model-editor__fetch-error">
+                    <i class="pi pi-exclamation-triangle"></i>
+                    {{ ollamaFetchError }}
+                </span>
+            }
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <p-tabs value="params">
+        <p-tablist>
+            <p-tab value="params">Parameters</p-tab>
+            <p-tab value="longtext">Long-Text Format</p-tab>
+        </p-tablist>
+        <p-tabpanels>
+
+            <!-- Parameters tab -->
+            <p-tabpanel value="params">
+                <div class="model-editor__tab-content">
+                    <div class="model-editor__reset-row">
+                        <button class="model-editor__reset-link" (click)="resetParameters()">Reset to defaults</button>
+                    </div>
+
+                    <div class="model-editor__param-grid">
+
+                        <div class="model-editor__field model-editor__field--full">
+                            <label class="model-editor__label">Temperature (0–2)</label>
+                            <div class="model-editor__slider-row">
+                                <p-slider [(ngModel)]="parameters.temperature" [min]="0" [max]="2" [step]="0.05" class="model-editor__slider" />
+                                <p-inputnumber [(ngModel)]="parameters.temperature" [min]="0" [max]="2" [step]="0.05" [minFractionDigits]="2" [maxFractionDigits]="2" [inputStyle]="{'width':'80px'}" />
+                            </div>
+                        </div>
+
+                        <div class="model-editor__field model-editor__field--full">
+                            <label class="model-editor__label">Top P (0–1)</label>
+                            <div class="model-editor__slider-row">
+                                <p-slider [(ngModel)]="parameters.topP" [min]="0" [max]="1" [step]="0.01" class="model-editor__slider" />
+                                <p-inputnumber [(ngModel)]="parameters.topP" [min]="0" [max]="1" [step]="0.01" [minFractionDigits]="2" [maxFractionDigits]="2" [inputStyle]="{'width':'80px'}" />
+                            </div>
+                        </div>
+
+                        <div class="model-editor__field model-editor__field--full">
+                            <label class="model-editor__label">Min P (0–1)</label>
+                            <div class="model-editor__slider-row">
+                                <p-slider [(ngModel)]="parameters.minP" [min]="0" [max]="1" [step]="0.01" class="model-editor__slider" />
+                                <p-inputnumber [(ngModel)]="parameters.minP" [min]="0" [max]="1" [step]="0.01" [minFractionDigits]="2" [maxFractionDigits]="2" [inputStyle]="{'width':'80px'}" />
+                            </div>
+                        </div>
+
+                        <div class="model-editor__field model-editor__field--full">
+                            <label class="model-editor__label">Repeat Penalty (0.5–2)</label>
+                            <div class="model-editor__slider-row">
+                                <p-slider [(ngModel)]="parameters.repeatPenalty" [min]="0.5" [max]="2" [step]="0.05" class="model-editor__slider" />
+                                <p-inputnumber [(ngModel)]="parameters.repeatPenalty" [min]="0.5" [max]="2" [step]="0.05" [minFractionDigits]="2" [maxFractionDigits]="2" [inputStyle]="{'width':'80px'}" />
+                            </div>
+                        </div>
+
+                        <div class="model-editor__field">
+                            <label class="model-editor__label">Top K</label>
+                            <p-inputnumber [(ngModel)]="parameters.topK" [min]="0" [step]="1" [showButtons]="true" styleClass="model-editor__number-input" />
+                        </div>
+
+                        <div class="model-editor__field">
+                            <label class="model-editor__label">Repeat Last N</label>
+                            <p-inputnumber [(ngModel)]="parameters.repeatLastN" [step]="1" [showButtons]="true" styleClass="model-editor__number-input" />
+                            <span class="model-editor__hint">-1 = full context</span>
+                        </div>
+
+                        <div class="model-editor__field">
+                            <label class="model-editor__label">Context Window (num_ctx)</label>
+                            <p-inputnumber [(ngModel)]="parameters.numCtx" [min]="1" [step]="512" [showButtons]="true" styleClass="model-editor__number-input" />
+                        </div>
+
+                        <div class="model-editor__field">
+                            <label class="model-editor__label">Max Tokens (num_predict)</label>
+                            <p-inputnumber [(ngModel)]="parameters.numPredict" [step]="1" [showButtons]="true" styleClass="model-editor__number-input" />
+                            <span class="model-editor__hint">-1 = unlimited</span>
+                        </div>
+
+                        <div class="model-editor__field">
+                            <label class="model-editor__label">Seed</label>
+                            <p-inputnumber [(ngModel)]="parameters.seed" [step]="1" [showButtons]="true" styleClass="model-editor__number-input" />
+                            <span class="model-editor__hint">-1 = random</span>
+                        </div>
+
+                        <div class="model-editor__field">
+                            <label class="model-editor__label">Mirostat Mode</label>
+                            <p-select
+                                [(ngModel)]="parameters.mirostat"
+                                [options]="mirostatOptions"
+                                optionLabel="label"
+                                optionValue="value"
+                                styleClass="model-editor__select-full"
+                            />
+                        </div>
+
+                        @if (parameters.mirostat !== 0) {
+                            <div class="model-editor__field">
+                                <label class="model-editor__label">Mirostat Tau</label>
+                                <p-inputnumber [(ngModel)]="parameters.mirostatTau" [min]="0" [step]="0.1" [minFractionDigits]="1" styleClass="model-editor__number-input" />
+                            </div>
+                            <div class="model-editor__field">
+                                <label class="model-editor__label">Mirostat Eta</label>
+                                <p-inputnumber [(ngModel)]="parameters.mirostatEta" [min]="0" [step]="0.01" [minFractionDigits]="2" styleClass="model-editor__number-input" />
+                            </div>
+                        }
+
+                        <div class="model-editor__field model-editor__field--full">
+                            <label class="model-editor__label">Stop Sequences</label>
+                            <p-chips [(ngModel)]="parameters.stop" [addOnBlur]="true" placeholder="Type and press Enter…" styleClass="model-editor__chips" />
+                        </div>
+
+                    </div>
+                </div>
+            </p-tabpanel>
+
+            <!-- Long-Text Format tab -->
+            <p-tabpanel value="longtext">
+                <div class="model-editor__tab-content">
+                    <div class="model-editor__longtext-header">
+                        <div class="model-editor__toggle-row">
+                            <p-toggleswitch [(ngModel)]="longTextFormat.enabled" inputId="ltfEnabled" />
+                            <label for="ltfEnabled" class="model-editor__toggle-label">
+                                Enable long-text format for this model
+                            </label>
+                        </div>
+                        <p class="model-editor__longtext-desc">
+                            When enabled, the conversation history is serialized into a single string.
+                            Each speaker's contribution is wrapped with the prefix/suffix sequences below.
+                        </p>
+                    </div>
+
+                    <div class="model-editor__ltf-grid" [class.model-editor__ltf-grid--disabled]="!longTextFormat.enabled">
+                        <div class="model-editor__ltf-row">
+                            <span class="model-editor__ltf-speaker">System</span>
+                            <div class="model-editor__field">
+                                <label class="model-editor__label">Prefix</label>
+                                <input pInputText [(ngModel)]="longTextFormat.systemPrefix" placeholder="e.g. &lt;&lt;SYS&gt;&gt;" class="model-editor__text-input" />
+                            </div>
+                            <div class="model-editor__field">
+                                <label class="model-editor__label">Suffix</label>
+                                <input pInputText [(ngModel)]="longTextFormat.systemSuffix" placeholder="e.g. &lt;&lt;/SYS&gt;&gt;" class="model-editor__text-input" />
+                            </div>
+                        </div>
+                        <div class="model-editor__ltf-row">
+                            <span class="model-editor__ltf-speaker">Human</span>
+                            <div class="model-editor__field">
+                                <label class="model-editor__label">Prefix</label>
+                                <input pInputText [(ngModel)]="longTextFormat.humanPrefix" placeholder="e.g. [INST] " class="model-editor__text-input" />
+                            </div>
+                            <div class="model-editor__field">
+                                <label class="model-editor__label">Suffix</label>
+                                <input pInputText [(ngModel)]="longTextFormat.humanSuffix" placeholder="e.g.  [/INST]" class="model-editor__text-input" />
+                            </div>
+                        </div>
+                        <div class="model-editor__ltf-row">
+                            <span class="model-editor__ltf-speaker">Assistant</span>
+                            <div class="model-editor__field">
+                                <label class="model-editor__label">Prefix</label>
+                                <input pInputText [(ngModel)]="longTextFormat.assistantPrefix" placeholder="e.g. <|im_start|>assistant" class="model-editor__text-input" />
+                            </div>
+                            <div class="model-editor__field">
+                                <label class="model-editor__label">Suffix</label>
+                                <input pInputText [(ngModel)]="longTextFormat.assistantSuffix" placeholder="e.g. <|im_end|>" class="model-editor__text-input" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </p-tabpanel>
+
+        </p-tabpanels>
+    </p-tabs>
+
+    <!-- Footer actions -->
+    <div class="model-editor__footer">
+        <p-button
+            label="Save"
+            icon="pi pi-check"
+            [loading]="saving"
+            (onClick)="save()"
+        />
+        <p-button
+            label="Cancel"
+            severity="secondary"
+            (onClick)="cancel()"
+        />
+    </div>
+</div>

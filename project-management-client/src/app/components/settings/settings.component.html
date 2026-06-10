@@ -1,0 +1,18 @@
+<div class="settings-shell">
+    <nav class="settings-shell__nav">
+        <div class="settings-shell__nav-header">Settings</div>
+        <ul class="settings-shell__nav-list">
+            <li>
+                <a class="settings-shell__nav-link"
+                   routerLink="/settings/llm"
+                   routerLinkActive="settings-shell__nav-link--active">
+                    <i class="pi pi-server"></i>
+                    LLM Providers
+                </a>
+            </li>
+        </ul>
+    </nav>
+    <div class="settings-shell__content">
+        <router-outlet />
+    </div>
+</div>

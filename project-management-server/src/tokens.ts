@@ -5,4 +5,5 @@ export const TOKENS = {
     TaskDbService:        Symbol('TaskDbService'),
     NoteDbService:        Symbol('NoteDbService'),
     CascadeDeleteService: Symbol('CascadeDeleteService'),
+    LlmModelDbService:    Symbol('LlmModelDbService'),
 };

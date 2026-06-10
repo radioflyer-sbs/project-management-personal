@@ -38,6 +38,32 @@
         flex: 1;
         overflow: hidden;
     }
+
+    &__settings-btn {
+        appearance: none;
+        -webkit-appearance: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        border-radius: 6px;
+        background: none;
+        color: rgba(255, 255, 255, 0.8);
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: background 0.12s, color 0.12s, border-color 0.12s;
+        text-decoration: none;
+
+        .pi { font-size: 15px; }
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.6);
+        }
+    }
 }
 
 :host ::ng-deep .app-breadcrumb {

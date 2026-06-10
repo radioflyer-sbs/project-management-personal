@@ -1,0 +1,163 @@
+<p-toast position="top-right" />
+<p-confirmdialog />
+
+<div class="llm-settings">
+    <h1 class="llm-settings__page-title">LLM Providers</h1>
+
+    <!-- Provider Cards -->
+    <div class="llm-settings__provider-list">
+        <div class="llm-settings__provider-card llm-settings__provider-card--active">
+            <div class="llm-settings__provider-info">
+                <span class="llm-settings__provider-name">Ollama</span>
+                <span class="llm-settings__provider-desc">Local model server</span>
+            </div>
+            <p-tag severity="success" value="Active" />
+        </div>
+        <div class="llm-settings__provider-card llm-settings__provider-card--disabled">
+            <div class="llm-settings__provider-info">
+                <span class="llm-settings__provider-name">Claude</span>
+                <span class="llm-settings__provider-desc">Anthropic API</span>
+            </div>
+            <p-tag severity="secondary" value="Coming soon" />
+        </div>
+        <div class="llm-settings__provider-card llm-settings__provider-card--disabled">
+            <div class="llm-settings__provider-info">
+                <span class="llm-settings__provider-name">OpenAI</span>
+                <span class="llm-settings__provider-desc">OpenAI API</span>
+            </div>
+            <p-tag severity="secondary" value="Coming soon" />
+        </div>
+    </div>
+
+    <p-divider />
+
+    <!-- Ollama Connection -->
+    <section class="llm-settings__section">
+        <h2 class="llm-settings__section-title">
+            <i class="pi pi-link"></i>
+            Ollama Connection
+        </h2>
+
+        <div class="llm-settings__form">
+            <div class="llm-settings__field">
+                <label class="llm-settings__label" for="baseUrl">Base URL</label>
+                <input
+                    id="baseUrl"
+                    pInputText
+                    class="llm-settings__input"
+                    [(ngModel)]="connectionSettings.ollama.baseUrl"
+                    placeholder="http://localhost:11434"
+                />
+            </div>
+            <div class="llm-settings__field">
+                <label class="llm-settings__label" for="timeout">Timeout (ms)</label>
+                <p-inputnumber
+                    inputId="timeout"
+                    [(ngModel)]="connectionSettings.ollama.timeoutMs"
+                    [min]="1000"
+                    [step]="1000"
+                    styleClass="llm-settings__number-input"
+                />
+            </div>
+        </div>
+
+        <div class="llm-settings__actions">
+            <p-button
+                label="Save Connection"
+                icon="pi pi-save"
+                [loading]="savingConnection"
+                (onClick)="saveConnection()"
+            />
+            <p-button
+                label="Test Connection"
+                icon="pi pi-wifi"
+                severity="secondary"
+                [loading]="testStatus === 'testing'"
+                (onClick)="testConnection()"
+            />
+            @if (testStatus === 'ok') {
+                <span class="llm-settings__test-result llm-settings__test-result--ok">
+                    <i class="pi pi-check-circle"></i>
+                    {{ testMessage }}
+                </span>
+            }
+            @if (testStatus === 'error') {
+                <span class="llm-settings__test-result llm-settings__test-result--error">
+                    <i class="pi pi-times-circle"></i>
+                    {{ testMessage }}
+                </span>
+            }
+        </div>
+    </section>
+
+    <p-divider />
+
+    <!-- Model List -->
+    <section class="llm-settings__section">
+        <div class="llm-settings__section-header">
+            <h2 class="llm-settings__section-title">
+                <i class="pi pi-database"></i>
+                Configured Models
+            </h2>
+            <p-button
+                label="Add Model"
+                icon="pi pi-plus"
+                size="small"
+                (onClick)="addModel()"
+            />
+        </div>
+
+        @if (loadingModels) {
+            <div class="llm-settings__loading">
+                <i class="pi pi-spin pi-spinner"></i>
+                Loading models…
+            </div>
+        } @else if (models.length === 0) {
+            <div class="llm-settings__empty">
+                No models configured yet. Click "Add Model" to create one.
+            </div>
+        } @else {
+            <div class="llm-settings__model-list">
+                <div class="llm-settings__model-list-header">
+                    <span>Display Name</span>
+                    <span>Model Name</span>
+                    <span>Format</span>
+                    <span></span>
+                </div>
+                @for (model of models; track model._id) {
+                    <div class="llm-settings__model-row">
+                        <span class="llm-settings__model-display-name">{{ model.displayName }}</span>
+                        <span class="llm-settings__model-name">{{ model.modelName }}</span>
+                        <span>
+                            @if (model.longTextFormat.enabled) {
+                                <p-tag severity="info" value="Long-Text" />
+                            }
+                        </span>
+                        <div class="llm-settings__model-actions">
+                            <p-button
+                                icon="pi pi-pencil"
+                                severity="secondary"
+                                [rounded]="true"
+                                [text]="true"
+                                size="small"
+                                pTooltip="Edit"
+                                tooltipPosition="top"
+                                (onClick)="editModel(model)"
+                            />
+                            <p-button
+                                icon="pi pi-trash"
+                                severity="danger"
+                                [rounded]="true"
+                                [text]="true"
+                                size="small"
+                                pTooltip="Delete"
+                                tooltipPosition="top"
+                                (onClick)="deleteModel(model)"
+                            />
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+</div>
