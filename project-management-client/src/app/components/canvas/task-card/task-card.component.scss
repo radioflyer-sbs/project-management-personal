@@ -72,12 +72,30 @@
     }
 
     &__edit-hint {
-        font-size: 8px;
+        appearance: none;
+        -webkit-appearance: none;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 14px;
+        height: 14px;
+        padding: 0;
+        margin: 0;
+        border: none;
+        border-radius: 3px;
+        background: none;
         color: var(--color-text-on-card);
         opacity: 0;
-        flex-shrink: 0;
-        transition: opacity 0.15s;
-        pointer-events: none;
+        cursor: pointer;
+        transition: opacity 0.15s, background 0.15s;
+
+        .pi { font-size: 8px; }
+
+        &:hover {
+            opacity: 1 !important;
+            background: rgba(0, 0, 0, 0.12);
+        }
     }
 
     &__drill-btn {
@@ -157,14 +175,32 @@
     }
 
     &__body-edit-hint {
+        appearance: none;
+        -webkit-appearance: none;
         position: absolute;
         bottom: 4px;
         right: 6px;
-        font-size: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 14px;
+        height: 14px;
+        padding: 0;
+        margin: 0;
+        border: none;
+        border-radius: 3px;
+        background: none;
         color: var(--color-text-on-card);
         opacity: 0;
-        transition: opacity 0.15s;
-        pointer-events: none;
+        cursor: pointer;
+        transition: opacity 0.15s, background 0.15s;
+
+        .pi { font-size: 8px; }
+
+        &:hover {
+            opacity: 1 !important;
+            background: rgba(0, 0, 0, 0.12);
+        }
     }
 
     &__status-bar {

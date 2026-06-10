@@ -24,7 +24,9 @@
                 <span class="task-card__title" [class.task-card__title--complete]="task.isComplete" (dblclick)="startEditTitle($event)">
                     {{ localTitle }}
                 </span>
-                <i class="pi pi-pencil task-card__edit-hint" title="Double-click to edit"></i>
+                <button class="task-card__edit-hint" title="Edit title" (click)="startEditTitle($event)">
+                    <i class="pi pi-pencil"></i>
+                </button>
             }
         </div>
         <button class="task-card__drill-btn" title="Open" (click)="onDrillClick($event)">
@@ -45,7 +47,9 @@
             ></textarea>
         } @else {
             <div class="task-card__body" (dblclick)="startEditDescription($event)">{{ localDescription }}</div>
-            <i class="pi pi-pencil task-card__body-edit-hint" title="Double-click to edit"></i>
+            <button class="task-card__body-edit-hint" title="Edit description" (click)="startEditDescription($event)">
+                <i class="pi pi-pencil"></i>
+            </button>
         }
     </div>
 
