@@ -30,6 +30,8 @@ export class TaskCardComponent extends ComponentBase implements OnInit, OnChange
     @Output() taskEdited$             = new EventEmitter<{ title: string; description: string }>();
     @Output() urgencyChanged$         = new EventEmitter<TaskUrgency>();
     @Output() projectToParentChanged$ = new EventEmitter<boolean>();
+    @Output() completeChanged$        = new EventEmitter<boolean>();
+    @Output() childCompletionChanged$ = new EventEmitter<{ childId: string; isComplete: boolean }>();
     @Output() layoutChanged$          = new EventEmitter<{ task: Task; layout: Layout }>();
     @Output() dragStarted$            = new EventEmitter<PointerEvent>();
 
@@ -228,6 +230,11 @@ export class TaskCardComponent extends ComponentBase implements OnInit, OnChange
     toggleProjectToParent(e: MouseEvent): void {
         e.stopPropagation();
         this.projectToParentChanged$.emit(!(this.task.projectToParent ?? false));
+    }
+
+    toggleComplete(e: MouseEvent): void {
+        e.stopPropagation();
+        this.completeChanged$.emit(!(this.task.isComplete ?? false));
     }
 
     readonly resizeHandles: ResizeHandle[] = ['nw','n','ne','e','se','s','sw','w'];

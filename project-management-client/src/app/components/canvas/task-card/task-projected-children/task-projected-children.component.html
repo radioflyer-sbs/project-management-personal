@@ -12,7 +12,17 @@
                     [class.projected-children__item--complete]="child.isComplete"
                     [style.--accent]="meta(child.urgency).color"
                 >
-                    <i class="pi {{ child.isComplete ? 'pi-check' : meta(child.urgency).icon }} projected-children__icon"></i>
+                    <button
+                        class="projected-children__toggle"
+                        [title]="child.isComplete ? 'Mark not complete' : 'Mark complete'"
+                        (mousedown)="$event.stopPropagation()"
+                        (click)="toggleComplete(child, $event)"
+                    >
+                        <i class="pi {{ child.isComplete ? 'pi-check' : meta(child.urgency).icon }} projected-children__icon"></i>
+                        @if (!child.isComplete) {
+                            <i class="pi pi-check projected-children__check-hint"></i>
+                        }
+                    </button>
                     <span class="projected-children__title">{{ child.title }}</span>
                 </div>
             }

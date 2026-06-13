@@ -53,9 +53,25 @@
         }
     </div>
 
-    <app-task-projected-children [children]="task.projectedChildren ?? []" />
+    <app-task-projected-children
+        [children]="task.projectedChildren ?? []"
+        (completionToggled$)="childCompletionChanged$.emit($event)"
+    />
 
     <div class="task-card__status-bar">
+
+        <!-- Completion toggle -->
+        <button
+            class="task-card__complete-btn"
+            [class.task-card__complete-btn--active]="task.isComplete"
+            [title]="task.isComplete ? 'Mark not complete' : 'Mark complete'"
+            (mousedown)="$event.stopPropagation()"
+            (click)="toggleComplete($event)"
+        >
+            <i class="pi {{ task.isComplete ? 'pi-check-circle' : 'pi-circle' }}"></i>
+        </button>
+
+        <div class="task-card__status-divider"></div>
 
         <!-- Urgency picker -->
         <div class="task-card__urgency-wrap" (mousedown)="$event.stopPropagation()">

@@ -64,6 +64,8 @@
                             (taskEdited$)="onTaskEdited(task, $event)"
                             (urgencyChanged$)="onTaskUrgencyChanged(task, $event)"
                             (projectToParentChanged$)="onTaskProjectToParentChanged(task, $event)"
+                            (completeChanged$)="onTaskCompleteChanged(task, $event)"
+                            (childCompletionChanged$)="onProjectedChildCompletionChanged(task, $event)"
                             (dragStarted$)="onTaskDragStarted(task, $event)"
                         />
                     }

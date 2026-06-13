@@ -168,6 +168,22 @@ export class CanvasDataService {
         );
     }
 
+    /**
+     * Toggles a projected child's completion from the parent card's list. The child
+     * task lives on this parent's own canvas (not loaded here), so we persist it
+     * directly and optimistically patch the parent's embedded projectedChildren
+     * copy so the strike-through appears immediately.
+     */
+    setProjectedChildCompletion(parentId: string, childId: string, isComplete: boolean): void {
+        this.tasks$.next(this.tasks$.getValue().map(t => {
+            if ((t._id as any) !== parentId) { return t; }
+            const projectedChildren = (t.projectedChildren ?? []).map(c =>
+                (c._id as any) === childId ? { ...c, isComplete } : c);
+            return { ...t, projectedChildren };
+        }));
+        this.taskApi.update(childId, { isComplete }).subscribe();
+    }
+
     updateNote(note: Note): Observable<Note> {
         return this.noteApi.update(note._id as string, note).pipe(
             tap(updated => this.notes$.next(this.notes$.getValue().map(n => n._id === updated._id ? updated : n)))

@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, OnDestroy, ViewChild, ElementRef, NgZone, ChangeDetectorRef, inject } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnChanges, OnDestroy, ViewChild, ElementRef, NgZone, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ProjectedChild } from '../../../../../model/shared-models/task.model';
 import { TaskUrgency } from '../../../../../model/shared-models/task-urgency.enum';
@@ -23,6 +23,9 @@ export class TaskProjectedChildrenComponent implements OnChanges, OnDestroy {
 
     @Input() children: ProjectedChild[] = [];
 
+    /** Emits when a child's completion is toggled from the list. */
+    @Output() completionToggled$ = new EventEmitter<{ childId: string; isComplete: boolean }>();
+
     /** True when the list is clipping content — drives the "more below" hint. */
     isOverflowing = false;
 
@@ -41,6 +44,11 @@ export class TaskProjectedChildrenComponent implements OnChanges, OnDestroy {
 
     meta(urgency: TaskUrgency): { icon: string; color: string } {
         return URGENCY_META[urgency] ?? URGENCY_META[TaskUrgency.Normal];
+    }
+
+    toggleComplete(child: ProjectedChild, e: MouseEvent): void {
+        e.stopPropagation();
+        this.completionToggled$.emit({ childId: child._id as string, isComplete: !child.isComplete });
     }
 
     ngOnChanges(): void {
