@@ -7,6 +7,7 @@ import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { TextareaModule } from 'primeng/textarea';
+import { TooltipModule } from 'primeng/tooltip';
 import { FormsModule } from '@angular/forms';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ComponentBase } from '../component-base/component-base.component';
@@ -19,14 +20,17 @@ import { ProjectsService } from '../../services/projects.service';
 import { DeletionService } from '../../services/deletion.service';
 import { TaskApiClient } from '../../services/api-clients/task-api.client';
 import { NoteApiClient } from '../../services/api-clients/note-api.client';
+import { DashboardApiClient } from '../../services/api-clients/dashboard-api.client';
 import { TaskCardComponent } from '../canvas/task-card/task-card.component';
 import { NoteCardComponent } from '../canvas/note-card/note-card.component';
 import { GroupCardComponent } from '../canvas/group-card/group-card.component';
+import { DashboardCardComponent } from '../canvas/dashboard-card/dashboard-card.component';
 import { DetailsPaneComponent } from '../details-pane/details-pane.component';
 import { CanvasContextMenuComponent, ContextMenuItem } from '../canvas/canvas-context-menu/canvas-context-menu.component';
 import { Task } from '../../../model/shared-models/task.model';
 import { Note } from '../../../model/shared-models/note.model';
 import { Group } from '../../../model/shared-models/group.model';
+import { Dashboard } from '../../../model/shared-models/dashboard.model';
 import { Project } from '../../../model/shared-models/project.model';
 import { Layout } from '../../../model/shared-models/layout.model';
 import { TaskCounts } from '../../../model/shared-models/task-counts.model';
@@ -37,8 +41,8 @@ import { TaskUrgency } from '../../../model/shared-models/task-urgency.enum';
     standalone: true,
     imports: [
         CommonModule, FormsModule,
-        ButtonModule, DialogModule, InputTextModule, TextareaModule, ConfirmDialogModule,
-        TaskCardComponent, NoteCardComponent, GroupCardComponent,
+        ButtonModule, DialogModule, InputTextModule, TextareaModule, ConfirmDialogModule, TooltipModule,
+        TaskCardComponent, NoteCardComponent, GroupCardComponent, DashboardCardComponent,
         DetailsPaneComponent, CanvasContextMenuComponent,
     ],
     templateUrl: './canvas-host.component.html',
@@ -52,21 +56,23 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
     @ViewChild('canvasArea')        canvasAreaRef!: ElementRef<HTMLElement>;
     @ViewChild('rubberBandOverlay') rubberBandOverlayRef?: ElementRef<HTMLElement>;
 
-    private readonly router      = inject(Router);
-    readonly viewport            = inject(ViewportService);
-    readonly canvasData          = inject(CanvasDataService);
-    private readonly interaction = inject(CanvasInteractionService);
-    private readonly selection   = inject(SelectionService);
-    private readonly navigation  = inject(NavigationService);
-    private readonly projects    = inject(ProjectsService);
-    private readonly deletion    = inject(DeletionService);
-    private readonly taskApi     = inject(TaskApiClient);
-    private readonly noteApi     = inject(NoteApiClient);
-    private readonly zone        = inject(NgZone);
+    private readonly router        = inject(Router);
+    readonly viewport              = inject(ViewportService);
+    readonly canvasData            = inject(CanvasDataService);
+    private readonly interaction   = inject(CanvasInteractionService);
+    private readonly selection     = inject(SelectionService);
+    private readonly navigation    = inject(NavigationService);
+    private readonly projects      = inject(ProjectsService);
+    private readonly deletion      = inject(DeletionService);
+    private readonly taskApi       = inject(TaskApiClient);
+    private readonly noteApi       = inject(NoteApiClient);
+    private readonly dashboardApi  = inject(DashboardApiClient);
+    private readonly zone          = inject(NgZone);
 
-    tasks:      Task[]   = [];
-    notes:      Note[]   = [];
-    groups:     Group[]  = [];
+    tasks:      Task[]      = [];
+    notes:      Note[]      = [];
+    groups:     Group[]     = [];
+    dashboards: Dashboard[] = [];
     taskCounts: Record<string, TaskCounts> = {};
     hostProject: Project | null = null;
     hostTask: Task | null = null;
@@ -79,6 +85,10 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
     editName        = '';
     editDescription = '';
 
+    showNewDashboardDialog = false;
+    newDashboardTitle      = '';
+    newDashboardKey        = '';
+
     contextMenuVisible = false;
     contextMenuX = 0;
     contextMenuY = 0;
@@ -88,15 +98,17 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
     private shiftHeld = false;
 
     readonly contextMenuItems: ContextMenuItem[] = [
-        { label: 'Add Task',  icon: 'pi-plus-circle', action: 'add-task'  },
-        { label: 'Add Note',  icon: 'pi-file-plus',   action: 'add-note'  },
-        { label: 'Add Group', icon: 'pi-th-large',    action: 'add-group' },
+        { label: 'Add Task',      icon: 'pi-plus-circle',  action: 'add-task'      },
+        { label: 'Add Note',      icon: 'pi-file-plus',    action: 'add-note'      },
+        { label: 'Add Group',     icon: 'pi-th-large',     action: 'add-group'     },
+        { label: 'Add Dashboard', icon: 'pi-chart-bar',    action: 'add-dashboard' },
     ];
 
     ngOnInit(): void {
         this.canvasData.tasks.pipe(takeUntil(this.ngDestroy$)).subscribe(t => this.tasks = t);
         this.canvasData.notes.pipe(takeUntil(this.ngDestroy$)).subscribe(n => this.notes = n);
         this.canvasData.groups.pipe(takeUntil(this.ngDestroy$)).subscribe(g => this.groups = g);
+        this.canvasData.dashboards.pipe(takeUntil(this.ngDestroy$)).subscribe(d => this.dashboards = d);
         this.canvasData.taskCounts.pipe(takeUntil(this.ngDestroy$)).subscribe(c => this.taskCounts = c);
 
         this.viewport.persistNeeded$.pipe(takeUntil(this.ngDestroy$)).subscribe(vs => {
@@ -111,6 +123,17 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
                     (g._id as any) === event.id ? { ...g, layout: event.layout } : g
                 );
                 this.canvasData.updateGroupLayout(event.id, event.layout);
+                return;
+            }
+
+            // Dashboard move — MongoDB IDs are unique, so ID match is sufficient
+            const dashboardMatch = this.dashboards.find(d => (d._id as any) === event.id);
+            if (dashboardMatch) {
+                if (!event.hasMoved) { return; }
+                this.dashboards = this.dashboards.map(d =>
+                    (d._id as any) === event.id ? { ...d, layout: event.layout } : d
+                );
+                this.canvasData.updateDashboardLayout(event.id, event.layout);
                 return;
             }
 
@@ -156,6 +179,15 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
                             return u ?? t;
                         });
                     });
+                return;
+            }
+
+            const dashboardResizeMatch = this.dashboards.find(d => (d._id as any) === event.id);
+            if (dashboardResizeMatch) {
+                this.dashboards = this.dashboards.map(d =>
+                    (d._id as any) === event.id ? { ...d, layout: event.layout } : d
+                );
+                this.canvasData.updateDashboardLayout(event.id, event.layout);
                 return;
             }
 
@@ -494,7 +526,47 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         } else if (action === 'add-group') {
             this.canvasData.addGroup(this.contextMenuCanvasX, this.contextMenuCanvasY)
                 .subscribe(group => this.selection.select({ type: 'group', item: group }));
+        } else if (action === 'add-dashboard') {
+            this.newDashboardTitle = 'Dashboard';
+            this.newDashboardKey   = `dashboard-${Date.now()}`;
+            this.showNewDashboardDialog = true;
         }
+    }
+
+    createDashboard(): void {
+        if (!this.newDashboardTitle.trim() || !this.newDashboardKey.trim()) { return; }
+        this.canvasData.addDashboard(
+            this.contextMenuCanvasX, this.contextMenuCanvasY,
+            this.newDashboardTitle.trim(), this.newDashboardKey.trim()
+        ).subscribe({
+            next: () => { this.showNewDashboardDialog = false; },
+            error: err => {
+                if (err.status === 409) { alert(`Dashboard key '${this.newDashboardKey}' already exists.`); }
+            },
+        });
+    }
+
+    onDashboardUpdated(updated: Dashboard): void {
+        this.dashboards = this.dashboards.map(d => (d._id as any) === (updated._id as any) ? updated : d);
+    }
+
+    onDashboardDeleted(dashboardId: string): void {
+        this.canvasData.removeDashboard(dashboardId);
+    }
+
+    onDashboardDragStarted(dashboard: Dashboard, e: PointerEvent): void {
+        const current = this.dashboards.find(d => (d._id as any) === (dashboard._id as any)) ?? dashboard;
+        this.interaction.startMove(e, current._id as string, false, current.layout);
+    }
+
+    onDashboardResizeStarted(dashboard: Dashboard, event: { handle: string; e: PointerEvent }): void {
+        this.interaction.startResize(event.e, dashboard._id as string, false, event.handle as any, dashboard.layout);
+    }
+
+    fitToDashboard(dashboard: Dashboard): void {
+        if (!this.canvasAreaRef) { return; }
+        const rect = this.canvasAreaRef.nativeElement.getBoundingClientRect();
+        this.viewport.zoomToFit([dashboard.layout], rect.width, rect.height);
     }
 
     onTaskSelected(task: Task): void {
@@ -795,6 +867,7 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
             ...this.tasks.map(t => t.layout),
             ...this.notes.map(n => n.layout),
             ...this.groups.map(g => g.layout),
+            ...this.dashboards.map(d => d.layout),
         ];
         this.viewport.zoomToFit(layouts, rect.width, rect.height);
     }

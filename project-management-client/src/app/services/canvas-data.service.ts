@@ -5,9 +5,11 @@ import { TaskApiClient, CreateTaskDto } from './api-clients/task-api.client';
 import { NoteApiClient, CreateNoteDto } from './api-clients/note-api.client';
 import { ProjectApiClient } from './api-clients/project-api.client';
 import { GroupApiClient, CreateGroupDto } from './api-clients/group-api.client';
+import { DashboardApiClient, CreateDashboardDto } from './api-clients/dashboard-api.client';
 import { Task } from '../../model/shared-models/task.model';
 import { Note } from '../../model/shared-models/note.model';
 import { Group } from '../../model/shared-models/group.model';
+import { Dashboard } from '../../model/shared-models/dashboard.model';
 import { Layout } from '../../model/shared-models/layout.model';
 import { TaskCounts } from '../../model/shared-models/task-counts.model';
 import { TaskUrgency } from '../../model/shared-models/task-urgency.enum';
@@ -26,10 +28,11 @@ export class CanvasDataService {
 
     constructor() { }
 
-    private readonly taskApi    = inject(TaskApiClient);
-    private readonly noteApi    = inject(NoteApiClient);
-    private readonly projectApi = inject(ProjectApiClient);
-    private readonly groupApi   = inject(GroupApiClient);
+    private readonly taskApi      = inject(TaskApiClient);
+    private readonly noteApi      = inject(NoteApiClient);
+    private readonly projectApi   = inject(ProjectApiClient);
+    private readonly groupApi     = inject(GroupApiClient);
+    private readonly dashboardApi = inject(DashboardApiClient);
 
     private projectId = '';
     private parentTaskId: string | undefined;
@@ -38,11 +41,13 @@ export class CanvasDataService {
     private readonly tasks$       = new BehaviorSubject<Task[]>([]);
     private readonly notes$       = new BehaviorSubject<Note[]>([]);
     private readonly groups$      = new BehaviorSubject<Group[]>([]);
+    private readonly dashboards$  = new BehaviorSubject<Dashboard[]>([]);
     private readonly taskCounts$  = new BehaviorSubject<Record<string, TaskCounts>>({});
 
     readonly tasks:      Observable<Task[]>                     = this.tasks$.asObservable();
     readonly notes:      Observable<Note[]>                     = this.notes$.asObservable();
     readonly groups:     Observable<Group[]>                    = this.groups$.asObservable();
+    readonly dashboards: Observable<Dashboard[]>                = this.dashboards$.asObservable();
     readonly taskCounts: Observable<Record<string, TaskCounts>> = this.taskCounts$.asObservable();
 
     initialize(projectId: string, parentTaskId: string | undefined, ancestorTaskIds: string[]): void {
@@ -52,6 +57,7 @@ export class CanvasDataService {
         this.tasks$.next([]);
         this.notes$.next([]);
         this.groups$.next([]);
+        this.dashboards$.next([]);
         this.taskCounts$.next({});
         this.load();
     }
@@ -70,10 +76,16 @@ export class CanvasDataService {
             : this.groupApi.getByProject(this.projectId)
         ).pipe(catchError(() => of<Group[]>([])));
 
-        forkJoin([tasks$, notes$, groups$]).subscribe(([tasks, notes, groups]) => {
+        const dashboards$ = (this.parentTaskId
+            ? this.dashboardApi.getByParentTask(this.parentTaskId)
+            : this.dashboardApi.getByProject(this.projectId)
+        ).pipe(catchError(() => of<Dashboard[]>([])));
+
+        forkJoin([tasks$, notes$, groups$, dashboards$]).subscribe(([tasks, notes, groups, dashboards]) => {
             this.tasks$.next(tasks);
             this.notes$.next(notes);
             this.groups$.next(groups);
+            this.dashboards$.next(dashboards);
             const taskIds = tasks.map(t => (t._id as any).toString());
             if (taskIds.length > 0) {
                 this.taskApi.getCounts(taskIds).subscribe(counts => this.taskCounts$.next(counts));
@@ -182,6 +194,47 @@ export class CanvasDataService {
             return { ...t, projectedChildren };
         }));
         this.taskApi.update(childId, { isComplete }).subscribe();
+    }
+
+    addDashboard(canvasX: number, canvasY: number, title: string, key: string): Observable<Dashboard> {
+        const dto: CreateDashboardDto = {
+            projectId:       this.projectId,
+            parentTaskId:    this.parentTaskId,
+            ancestorTaskIds: this.ancestorTaskIds,
+            title,
+            key,
+            layout: { x: canvasX, y: canvasY, width: DEFAULT_ITEM_WIDTH * 1.5, height: DEFAULT_ITEM_HEIGHT * 2, zIndex: Date.now() },
+            config: { widgets: [] },
+        };
+        return this.dashboardApi.create(dto).pipe(
+            tap(dashboard => this.dashboards$.next([...this.dashboards$.getValue(), dashboard]))
+        );
+    }
+
+    updateDashboard(dashboard: Dashboard): Observable<Dashboard> {
+        const id = dashboard._id as any;
+        this.dashboards$.next(this.dashboards$.getValue().map(d => (d._id as any) === id ? dashboard : d));
+        return this.dashboardApi.update(dashboard._id as string, dashboard).pipe(
+            tap(updated => this.dashboards$.next(
+                this.dashboards$.getValue().map(d => (d._id as any) === (updated._id as any) ? updated : d)
+            ))
+        );
+    }
+
+    updateDashboardLayout(dashboardId: string, layout: Layout): void {
+        this.dashboards$.next(
+            this.dashboards$.getValue().map(d => (d._id as any) === dashboardId ? { ...d, layout } : d)
+        );
+        this.dashboardApi.update(dashboardId, { layout }).subscribe();
+    }
+
+    removeDashboard(dashboardId: string): void {
+        this.dashboards$.next(this.dashboards$.getValue().filter(d => (d._id as any) !== dashboardId));
+        this.dashboardApi.delete(dashboardId).subscribe();
+    }
+
+    getDashboardById(id: string): Dashboard | undefined {
+        return this.dashboards$.getValue().find(d => (d._id as any) === id);
     }
 
     updateNote(note: Note): Observable<Note> {

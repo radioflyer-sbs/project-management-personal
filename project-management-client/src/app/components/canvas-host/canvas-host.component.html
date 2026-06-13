@@ -7,6 +7,21 @@
         }
         <span class="canvas-toolbar__title">{{ hostDisplayName }}</span>
         <div class="canvas-toolbar__spacer"></div>
+        <!-- Dashboard quick-jump buttons (shown only when dashboards are present) -->
+        @for (db of dashboards; track db._id) {
+            <p-button
+                [label]="db.title"
+                icon="pi pi-chart-bar"
+                [text]="true"
+                size="small"
+                [pTooltip]="'Jump to ' + db.title"
+                tooltipPosition="bottom"
+                appendTo="body"
+                (onClick)="fitToDashboard(db)" />
+        }
+        @if (dashboards.length > 0) {
+            <div class="canvas-toolbar__sep"></div>
+        }
         <p-button label="Fit All" icon="pi pi-expand" [text]="true" size="small" (onClick)="fitAll()" pTooltip="Zoom to fit all items" tooltipPosition="bottom" appendTo="body" />
         <p-button label="Edit" icon="pi pi-pencil" [text]="true" size="small" (onClick)="openEditDialog()" />
         <p-button icon="pi pi-trash" [text]="true" severity="danger" size="small" (onClick)="deleteHost()" pTooltip="Delete" tooltipPosition="left" appendTo="body" />
@@ -78,6 +93,17 @@
                             (dragStarted$)="onNoteDragStarted(note, $event)"
                         />
                     }
+                    @for (db of dashboards; track db._id) {
+                        <app-dashboard-card
+                            [dashboard]="db"
+                            [projectId]="projectId"
+                            (selected$)="$event && null"
+                            (dragStarted$)="onDashboardDragStarted(db, $event)"
+                            (resizeStarted$)="onDashboardResizeStarted(db, $event)"
+                            (dashboardUpdated$)="onDashboardUpdated($event)"
+                            (dashboardDeleted$)="onDashboardDeleted($event)"
+                        />
+                    }
                 </div>
             }
 
@@ -129,3 +155,24 @@
 </p-dialog>
 
 <p-confirmDialog appendTo="body" />
+
+<!-- New Dashboard dialog -->
+<p-dialog header="Add Dashboard" [(visible)]="showNewDashboardDialog"
+    [modal]="true" [style]="{ width: '380px' }" appendTo="body">
+    <div class="dialog-form">
+        <div class="field">
+            <label>Title <span class="required">*</span></label>
+            <input pInputText [(ngModel)]="newDashboardTitle" class="w-full" placeholder="Dashboard" />
+        </div>
+        <div class="field">
+            <label>Key <span class="required">*</span> <small style="color:#64748b">(unique per project, used by API/MCP)</small></label>
+            <input pInputText [(ngModel)]="newDashboardKey" class="w-full" placeholder="my-dashboard" />
+        </div>
+    </div>
+    <ng-template pTemplate="footer">
+        <p-button label="Cancel" [text]="true" (onClick)="showNewDashboardDialog = false" />
+        <p-button label="Create" icon="pi pi-plus"
+            [disabled]="!newDashboardTitle.trim() || !newDashboardKey.trim()"
+            (onClick)="createDashboard()" />
+    </ng-template>
+</p-dialog>

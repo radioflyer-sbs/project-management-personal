@@ -16,6 +16,10 @@ import { LlmModelDbService } from './database/llm/llm-model-db.service';
 import { createGroupRouter } from './server/groups/groups.router';
 import { GroupDbService } from './database/groups/group-db.service';
 import { ProjectionOrderService } from './database/projection-order.service';
+import { DataDefinitionDbService } from './database/data-definitions/data-definition-db.service';
+import { DashboardDbService } from './database/dashboards/dashboard-db.service';
+import { createDataDefinitionRouter } from './server/data-definitions/data-definitions.router';
+import { createDashboardRouter } from './server/dashboards/dashboards.router';
 
 export async function initializeExpressApp(container: Container): Promise<Application> {
     const config = await getAppConfig();
@@ -29,14 +33,18 @@ export async function initializeExpressApp(container: Container): Promise<Applic
     const noteDb         = await container.getAsync<NoteDbService>(TOKENS.NoteDbService);
     const cascadeDelete  = await container.getAsync<CascadeDeleteService>(TOKENS.CascadeDeleteService);
     const llmModelDb     = await container.getAsync<LlmModelDbService>(TOKENS.LlmModelDbService);
-    const groupDb        = await container.getAsync<GroupDbService>(TOKENS.GroupDbService);
+    const groupDb         = await container.getAsync<GroupDbService>(TOKENS.GroupDbService);
     const projectionOrder = await container.getAsync<ProjectionOrderService>(TOKENS.ProjectionOrderService);
+    const dataDefDb       = await container.getAsync<DataDefinitionDbService>(TOKENS.DataDefinitionDbService);
+    const dashboardDb     = await container.getAsync<DashboardDbService>(TOKENS.DashboardDbService);
 
-    app.use('/api/projects', createProjectRouter(projectDb, cascadeDelete));
-    app.use('/api/tasks',    createTaskRouter(taskDb, cascadeDelete, noteDb, projectionOrder));
-    app.use('/api/notes',    createNoteRouter(noteDb, cascadeDelete));
-    app.use('/api/groups',   createGroupRouter(groupDb, projectionOrder));
-    app.use('/api/llm',      createLlmRouter(llmModelDb));
+    app.use('/api/projects',         createProjectRouter(projectDb, cascadeDelete));
+    app.use('/api/tasks',            createTaskRouter(taskDb, cascadeDelete, noteDb, projectionOrder));
+    app.use('/api/notes',            createNoteRouter(noteDb, cascadeDelete));
+    app.use('/api/groups',           createGroupRouter(groupDb, projectionOrder));
+    app.use('/api/llm',              createLlmRouter(llmModelDb));
+    app.use('/api/data-definitions', createDataDefinitionRouter(dataDefDb));
+    app.use('/api/dashboards',       createDashboardRouter(dashboardDb, dataDefDb));
 
     app.use((_req: Request, res: Response) => {
         res.status(404).json({ message: 'Not found.' });

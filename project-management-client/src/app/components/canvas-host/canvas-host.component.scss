@@ -35,6 +35,14 @@
     &__spacer {
         flex: 1;
     }
+
+    &__sep {
+        width: 1px;
+        height: 20px;
+        background: var(--color-border, #d1d5db);
+        margin: 0 4px;
+        flex-shrink: 0;
+    }
 }
 
 .canvas-host__body {

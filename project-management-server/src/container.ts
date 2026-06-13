@@ -9,6 +9,8 @@ import { CascadeDeleteService } from './database/cascade-delete.service';
 import { LlmModelDbService } from './database/llm/llm-model-db.service';
 import { GroupDbService } from './database/groups/group-db.service';
 import { ProjectionOrderService } from './database/projection-order.service';
+import { DataDefinitionDbService } from './database/data-definitions/data-definition-db.service';
+import { DashboardDbService } from './database/dashboards/dashboard-db.service';
 
 export async function buildContainer(): Promise<Container> {
     const config = await getAppConfig();
@@ -29,6 +31,8 @@ export async function buildContainer(): Promise<Container> {
     container.bind<LlmModelDbService>(TOKENS.LlmModelDbService).to(LlmModelDbService).inSingletonScope();
     container.bind<GroupDbService>(TOKENS.GroupDbService).to(GroupDbService).inSingletonScope();
     container.bind<ProjectionOrderService>(TOKENS.ProjectionOrderService).to(ProjectionOrderService).inSingletonScope();
+    container.bind<DataDefinitionDbService>(TOKENS.DataDefinitionDbService).to(DataDefinitionDbService).inSingletonScope();
+    container.bind<DashboardDbService>(TOKENS.DashboardDbService).to(DashboardDbService).inSingletonScope();
 
     return container;
 }
