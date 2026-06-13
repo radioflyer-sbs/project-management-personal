@@ -15,6 +15,7 @@ import { createLlmRouter } from './server/llm/llm.router';
 import { LlmModelDbService } from './database/llm/llm-model-db.service';
 import { createGroupRouter } from './server/groups/groups.router';
 import { GroupDbService } from './database/groups/group-db.service';
+import { ProjectionOrderService } from './database/projection-order.service';
 
 export async function initializeExpressApp(container: Container): Promise<Application> {
     const config = await getAppConfig();
@@ -29,11 +30,12 @@ export async function initializeExpressApp(container: Container): Promise<Applic
     const cascadeDelete  = await container.getAsync<CascadeDeleteService>(TOKENS.CascadeDeleteService);
     const llmModelDb     = await container.getAsync<LlmModelDbService>(TOKENS.LlmModelDbService);
     const groupDb        = await container.getAsync<GroupDbService>(TOKENS.GroupDbService);
+    const projectionOrder = await container.getAsync<ProjectionOrderService>(TOKENS.ProjectionOrderService);
 
     app.use('/api/projects', createProjectRouter(projectDb, cascadeDelete));
-    app.use('/api/tasks',    createTaskRouter(taskDb, cascadeDelete, noteDb));
+    app.use('/api/tasks',    createTaskRouter(taskDb, cascadeDelete, noteDb, projectionOrder));
     app.use('/api/notes',    createNoteRouter(noteDb, cascadeDelete));
-    app.use('/api/groups',   createGroupRouter(groupDb));
+    app.use('/api/groups',   createGroupRouter(groupDb, projectionOrder));
     app.use('/api/llm',      createLlmRouter(llmModelDb));
 
     app.use((_req: Request, res: Response) => {

@@ -8,6 +8,7 @@ export interface ProjectedChild {
     _id: ObjectId;
     title: string;
     urgency: TaskUrgency;
+    isComplete: boolean;
 }
 
 export interface Task extends DbEntity {
@@ -24,5 +25,11 @@ export interface Task extends DbEntity {
     viewState?: CanvasViewState;
     groupId?: string;
     preGroupLayout?: Layout;
+    /**
+     * Reading-order rank of this task among its parent's direct children, derived
+     * from the parent canvas layout (computed server-side on layout changes). Lower
+     * sorts first. Drives the order of the parent's projected-children list.
+     */
+    projectionOrder?: number;
     projectedChildren?: ProjectedChild[];
 }

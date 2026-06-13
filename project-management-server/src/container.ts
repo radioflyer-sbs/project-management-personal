@@ -8,6 +8,7 @@ import { NoteDbService } from './database/notes/note-db.service';
 import { CascadeDeleteService } from './database/cascade-delete.service';
 import { LlmModelDbService } from './database/llm/llm-model-db.service';
 import { GroupDbService } from './database/groups/group-db.service';
+import { ProjectionOrderService } from './database/projection-order.service';
 
 export async function buildContainer(): Promise<Container> {
     const config = await getAppConfig();
@@ -27,6 +28,7 @@ export async function buildContainer(): Promise<Container> {
     container.bind<CascadeDeleteService>(TOKENS.CascadeDeleteService).to(CascadeDeleteService).inSingletonScope();
     container.bind<LlmModelDbService>(TOKENS.LlmModelDbService).to(LlmModelDbService).inSingletonScope();
     container.bind<GroupDbService>(TOKENS.GroupDbService).to(GroupDbService).inSingletonScope();
+    container.bind<ProjectionOrderService>(TOKENS.ProjectionOrderService).to(ProjectionOrderService).inSingletonScope();
 
     return container;
 }

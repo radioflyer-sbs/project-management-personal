@@ -82,7 +82,8 @@ export class TaskDbService extends DbService {
                             { $eq: ['$parentTaskId', '$$taskId'] },
                             { $eq: ['$projectToParent', true] },
                         ]}}},
-                        { $project: { _id: 1, title: 1, urgency: 1 } },
+                        { $sort: { projectionOrder: 1, _id: 1 } },
+                        { $project: { _id: 1, title: 1, urgency: 1, isComplete: 1 } },
                     ],
                     as: 'projectedChildren',
                 },
@@ -103,12 +104,26 @@ export class TaskDbService extends DbService {
                             { $eq: ['$parentTaskId', '$$taskId'] },
                             { $eq: ['$projectToParent', true] },
                         ]}}},
-                        { $project: { _id: 1, title: 1, urgency: 1 } },
+                        { $sort: { projectionOrder: 1, _id: 1 } },
+                        { $project: { _id: 1, title: 1, urgency: 1, isComplete: 1 } },
                     ],
                     as: 'projectedChildren',
                 },
             },
         ]).toArray() as Promise<Task[]>;
+    }
+
+    /** Bulk-sets the `projectionOrder` field for many tasks in one round-trip. */
+    async setProjectionOrders(updates: { id: ObjectId; projectionOrder: number }[]): Promise<void> {
+        if (updates.length === 0) { return; }
+        const col = this.dbHelper.getCollection(DbCollectionNames.Tasks);
+        const now = new Date();
+        await col.bulkWrite(updates.map(u => ({
+            updateOne: {
+                filter: { _id: u.id } as any,
+                update: { $set: { projectionOrder: u.projectionOrder, updatedAt: now } },
+            },
+        })));
     }
 
     async getSubTaskCounts(taskIds: ObjectId[]): Promise<{ direct: Map<string, number>; total: Map<string, number> }> {

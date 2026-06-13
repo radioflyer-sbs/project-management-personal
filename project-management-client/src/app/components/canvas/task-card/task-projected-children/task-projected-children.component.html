@@ -1,11 +1,24 @@
 @if (children.length > 0) {
-    <div class="projected-children" (mousedown)="$event.button === 0 && $event.stopPropagation()">
+    <div
+        class="projected-children"
+        [class.projected-children--overflow]="isOverflowing"
+        (mousedown)="$event.button === 0 && $event.stopPropagation()"
+    >
         <div class="projected-children__label">Sub-task progress</div>
-        @for (child of children; track child._id) {
-            <div class="projected-children__item" [style.--accent]="meta(child.urgency).color">
-                <i class="pi {{ meta(child.urgency).icon }} projected-children__icon"></i>
-                <span class="projected-children__title">{{ child.title }}</span>
-            </div>
-        }
+        <div #list class="projected-children__list" (wheel)="$event.stopPropagation()">
+            @for (child of children; track child._id) {
+                <div
+                    class="projected-children__item"
+                    [class.projected-children__item--complete]="child.isComplete"
+                    [style.--accent]="meta(child.urgency).color"
+                >
+                    <i class="pi {{ child.isComplete ? 'pi-check' : meta(child.urgency).icon }} projected-children__icon"></i>
+                    <span class="projected-children__title">{{ child.title }}</span>
+                </div>
+            }
+        </div>
+        <div class="projected-children__more" aria-hidden="true">
+            <i class="pi pi-chevron-down"></i>
+        </div>
     </div>
 }

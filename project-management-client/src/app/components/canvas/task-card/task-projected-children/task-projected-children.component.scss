@@ -1,8 +1,25 @@
+// The host shrinks first when the card is short (grow:0, shrink:1) and clips its
+// overflow; the inner list scrolls. This keeps the description full and the
+// status bar pinned to the bottom of the card.
+:host {
+    display: flex;
+    flex-direction: column;
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
 .projected-children {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
     padding: 4px 6px 2px;
     border-top: 1px solid rgba(0, 0, 0, 0.1);
 
     &__label {
+        flex: 0 0 auto;
         font-size: 0.62rem;
         font-weight: 700;
         letter-spacing: 0.04em;
@@ -10,6 +27,15 @@
         color: var(--color-text-on-card);
         opacity: 0.45;
         margin-bottom: 3px;
+    }
+
+    &__list {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        // Hide the scrollbar — the fade + chevron signal "more"; wheel still scrolls.
+        scrollbar-width: none;
+        &::-webkit-scrollbar { width: 0; height: 0; }
     }
 
     &__item {
@@ -23,12 +49,22 @@
         opacity: 0.78;
 
         &:last-child { margin-bottom: 0; }
+
+        // Completed: drop the urgency color entirely and strike it through.
+        &--complete {
+            background: color-mix(in srgb, #8e98a8 18%, white);
+            opacity: 0.55;
+        }
     }
 
     &__icon {
         font-size: 0.62rem;
         flex-shrink: 0;
         color: var(--accent, #8e98a8);
+    }
+
+    &__item--complete &__icon {
+        color: #6f7884;
     }
 
     &__title {
@@ -39,5 +75,39 @@
         text-overflow: ellipsis;
         flex: 1;
         min-width: 0;
+    }
+
+    &__item--complete &__title {
+        text-decoration: line-through;
+    }
+
+    // "More content below" hint — a bottom fade + chevron, shown only when the
+    // list is actually clipping content.
+    &__more {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 16px;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.15s;
+        background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.12));
+        border-radius: 0 0 4px 4px;
+
+        .pi {
+            font-size: 0.6rem;
+            line-height: 1;
+            margin-bottom: 1px;
+            color: var(--color-text-on-card);
+            opacity: 0.7;
+        }
+    }
+
+    &--overflow &__more {
+        opacity: 1;
     }
 }

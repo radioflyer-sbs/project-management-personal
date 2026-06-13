@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { TaskDbService } from '../../database/tasks/task-db.service';
 import { NoteDbService } from '../../database/notes/note-db.service';
 import { CascadeDeleteService } from '../../database/cascade-delete.service';
+import { ProjectionOrderService } from '../../database/projection-order.service';
 import { TaskUrgency } from '../../model/shared-models/task-urgency.enum';
 import { TaskCounts } from '../../model/shared-models/task-counts.model';
 
@@ -42,6 +43,7 @@ export function createTaskRouter(
     taskDb: TaskDbService,
     cascadeDelete: CascadeDeleteService,
     noteDb: NoteDbService,
+    projectionOrder: ProjectionOrderService,
 ): Router {
     const router = Router();
 
@@ -125,6 +127,7 @@ export function createTaskRouter(
                 ...(parentTaskId ? { parentTaskId: new ObjectId(parentTaskId) } : {}),
                 ancestorTaskIds: ancestorTaskIds.map(id => new ObjectId(id)),
             } as any);
+            projectionOrder.scheduleRecompute(task.parentTaskId);
             res.status(201).json(task);
         } catch (err) {
             res.status(500).json({ message: 'Failed to create task' });
@@ -144,6 +147,10 @@ export function createTaskRouter(
             if (preGroupLayout === null) { delete merged.preGroupLayout; }
             else if (preGroupLayout !== undefined) { merged.preGroupLayout = preGroupLayout; }
             const updated = await taskDb.update(merged);
+            // Layout / grouping / urgency are the only inputs to reading order.
+            if (parse.data.layout !== undefined || groupId !== undefined || parse.data.urgency !== undefined) {
+                projectionOrder.scheduleRecompute(updated.parentTaskId);
+            }
             res.json(updated);
         } catch (err) {
             res.status(500).json({ message: 'Failed to update task' });
@@ -152,7 +159,10 @@ export function createTaskRouter(
 
     router.delete('/:id', async (req: Request, res: Response) => {
         try {
-            await cascadeDelete.deleteTask(new ObjectId(String(req.params.id)));
+            const id = new ObjectId(String(req.params.id));
+            const existing = await taskDb.findById(id);
+            await cascadeDelete.deleteTask(id);
+            projectionOrder.scheduleRecompute(existing?.parentTaskId);
             res.status(204).send();
         } catch (err) {
             res.status(500).json({ message: 'Failed to delete task' });

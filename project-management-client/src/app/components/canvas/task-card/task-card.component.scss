@@ -132,10 +132,14 @@
         margin: 0 4px;
     }
 
-    // Flex container that holds either the text view or the editing textarea
+    // Flex container that holds either the text view or the editing textarea.
+    // basis:0 + grow:1 means it absorbs free space (the description "fills") but
+    // never shrinks — so the projected-children list is what gives up space when
+    // the card is short. The min-height keeps a couple lines of description
+    // readable instead of letting it collapse.
     &__body-wrap {
         flex: 1 1 0;
-        min-height: 0;
+        min-height: 40px;
         position: relative;
         overflow: hidden;
 

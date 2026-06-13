@@ -7,4 +7,5 @@ export const TOKENS = {
     CascadeDeleteService: Symbol('CascadeDeleteService'),
     LlmModelDbService:    Symbol('LlmModelDbService'),
     GroupDbService:       Symbol('GroupDbService'),
+    ProjectionOrderService: Symbol('ProjectionOrderService'),
 };
