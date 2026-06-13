@@ -119,6 +119,7 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
                     );
                     this.canvasData.updateNoteLayout(event.id, event.layout);
                 }
+                
                 return;
             }
 
@@ -169,6 +170,58 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         ).subscribe(() => this.initForCurrentUrl());
     }
 
+    /**
+     * Determines the new itemIds order for a group after a task is dropped onto it.
+     * For within-group reorder: backward movement inserts before nearest, forward inserts after.
+     * For entering/between-groups: inserts before/after nearest item based on drop half.
+     */
+    private computeGroupItemOrder(group: Group, draggedTaskId: string, dropLayout: Layout): string[] {
+        const dir = group.layoutDirection ?? 'vertical';
+        const dropCX = dropLayout.x + dropLayout.width  / 2;
+        const dropCY = dropLayout.y + dropLayout.height / 2;
+
+        const originalIdx = group.itemIds.indexOf(draggedTaskId);
+        const otherIds    = group.itemIds.filter(id => id !== draggedTaskId);
+
+        if (otherIds.length === 0) { return [draggedTaskId]; }
+
+        let nearestLocalIdx = 0;
+        let nearestId       = otherIds[0];
+        let nearestDist     = Infinity;
+
+        otherIds.forEach((id, i) => {
+            const t = this.tasks.find(t => (t._id as any) === id);
+            if (!t) { return; }
+            const dist = Math.hypot(
+                (t.layout.x + t.layout.width  / 2) - dropCX,
+                (t.layout.y + t.layout.height / 2) - dropCY,
+            );
+            if (dist < nearestDist) { nearestDist = dist; nearestLocalIdx = i; nearestId = id; }
+        });
+
+        let insertBefore: boolean;
+
+        if (originalIdx !== -1) {
+            // Within-group reorder: moving backward (to lower index) → before; forward → after
+            const nearestOriginalIdx = group.itemIds.indexOf(nearestId);
+            insertBefore = originalIdx > nearestOriginalIdx;
+        } else {
+            // Entering from outside: use midpoint of nearest item
+            const nearestTask = this.tasks.find(t => (t._id as any) === nearestId);
+            if (nearestTask) {
+                insertBefore = dir === 'vertical'
+                    ? dropCY < nearestTask.layout.y + nearestTask.layout.height / 2
+                    : dropCX < nearestTask.layout.x + nearestTask.layout.width  / 2;
+            } else {
+                insertBefore = false;
+            }
+        }
+
+        const finalIds = [...otherIds];
+        finalIds.splice(insertBefore ? nearestLocalIdx : nearestLocalIdx + 1, 0, draggedTaskId);
+        return finalIds;
+    }
+
     private handleTaskGroupInteraction(task: Task, droppedLayout: Layout): void {
         const cx = droppedLayout.x + droppedLayout.width  / 2;
         const cy = droppedLayout.y + droppedLayout.height / 2;
@@ -185,15 +238,19 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
             if (!currentGroupId) {
                 this.canvasData.updateTaskLayout(task._id as string, droppedLayout);
             } else {
-                // Still in same group — snap back to group-managed layout
-                this.canvasData.relayoutGroup(currentGroupId, this.tasks)
-                    .pipe(takeUntil(this.ngDestroy$))
-                    .subscribe(updated => {
-                        this.tasks = this.tasks.map(t => {
-                            const u = updated.find(ut => (ut._id as any) === (t._id as any));
-                            return u ?? t;
+                // Within same group — reorder based on drop position
+                const group = this.groups.find(g => (g._id as any) === currentGroupId);
+                if (group) {
+                    const newOrder = this.computeGroupItemOrder(group, task._id as string, droppedLayout);
+                    this.canvasData.reorderGroup(currentGroupId, newOrder, this.tasks)
+                        .pipe(takeUntil(this.ngDestroy$))
+                        .subscribe(updated => {
+                            this.tasks = this.tasks.map(t => {
+                                const u = updated.find(ut => (ut._id as any) === (t._id as any));
+                                return u ?? t;
+                            });
                         });
-                    });
+                }
             }
             return;
         }
@@ -215,7 +272,8 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         }
 
         if (!currentGroupId && targetGroup) {
-            this.canvasData.enterGroup(task._id as string, targetGroup._id as string)
+            const newOrder = this.computeGroupItemOrder(targetGroup, task._id as string, droppedLayout);
+            this.canvasData.enterGroup(task._id as string, targetGroup._id as string, newOrder)
                 .pipe(takeUntil(this.ngDestroy$))
                 .subscribe(({ updatedTasks, updatedGroup }) => {
                     this.tasks = this.tasks.map(t => {
@@ -230,7 +288,8 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         }
 
         if (currentGroupId && targetGroup && currentGroupId !== targetGroupId) {
-            this.canvasData.moveTaskBetweenGroups(task._id as string, currentGroupId, targetGroupId!)
+            const newToOrder = this.computeGroupItemOrder(targetGroup, task._id as string, droppedLayout);
+            this.canvasData.moveTaskBetweenGroups(task._id as string, currentGroupId, targetGroupId!, newToOrder)
                 .pipe(takeUntil(this.ngDestroy$))
                 .subscribe(({ updatedTasks, updatedGroups }) => {
                     this.tasks = this.tasks.map(t => {

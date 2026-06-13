@@ -301,22 +301,22 @@ export class CanvasDataService {
         return { itemLayouts, groupLayout };
     }
 
-    enterGroup(taskId: string, groupId: string): Observable<{ updatedTasks: Task[]; updatedGroup: Group }> {
+    enterGroup(taskId: string, groupId: string, orderedItemIds?: string[]): Observable<{ updatedTasks: Task[]; updatedGroup: Group }> {
         const task  = this.tasks$.getValue().find(t => (t._id as any) === taskId);
         const group = this.groups$.getValue().find(g => (g._id as any) === groupId);
         if (!task || !group) { return of({ updatedTasks: [], updatedGroup: group! }); }
 
         const preGroupLayout = task.preGroupLayout ?? { ...task.layout };
-        const newItemIds  = [...group.itemIds.filter(id => id !== taskId), taskId];
+        const computedIds = orderedItemIds ?? [...group.itemIds.filter(id => id !== taskId), taskId];
         const allTasks    = this.tasks$.getValue();
-        const groupTasks: Task[] = newItemIds.map(id => {
+        const groupTasks: Task[] = computedIds.map(id => {
             if (id === taskId) { return { ...task, groupId, preGroupLayout }; }
             return allTasks.find(t => (t._id as any) === id)!;
         }).filter(Boolean);
 
         const { itemLayouts, groupLayout } = this.computeGroupLayout(
-            { ...group, itemIds: newItemIds }, groupTasks);
-        const updatedGroup: Group = { ...group, itemIds: newItemIds, layout: groupLayout };
+            { ...group, itemIds: computedIds }, groupTasks);
+        const updatedGroup: Group = { ...group, itemIds: computedIds, layout: groupLayout };
         const updatedTasks = groupTasks.map((t, i) => ({ ...t, layout: itemLayouts[i] }));
 
         this.tasks$.next(allTasks.map(t => {
@@ -326,7 +326,7 @@ export class CanvasDataService {
         this.groups$.next(this.groups$.getValue().map(g => (g._id as any) === groupId ? updatedGroup : g));
 
         return forkJoin([
-            this.groupApi.update(groupId, { itemIds: newItemIds, layout: groupLayout }),
+            this.groupApi.update(groupId, { itemIds: computedIds, layout: groupLayout }),
             ...updatedTasks.map(t => this.taskApi.update(t._id as string, {
                 layout: t.layout,
                 groupId: (t as any).groupId ?? null,
@@ -379,7 +379,7 @@ export class CanvasDataService {
         ]).pipe(map(() => ({ updatedTask, updatedGroup, relayoutedTasks })));
     }
 
-    moveTaskBetweenGroups(taskId: string, fromGroupId: string, toGroupId: string): Observable<{
+    moveTaskBetweenGroups(taskId: string, fromGroupId: string, toGroupId: string, newToItemIds?: string[]): Observable<{
         updatedTasks: Task[];
         updatedGroups: Group[];
     }> {
@@ -389,7 +389,7 @@ export class CanvasDataService {
         if (!task || !fromGroup || !toGroup) { return of({ updatedTasks: [], updatedGroups: [] }); }
 
         const fromItemIds = fromGroup.itemIds.filter(id => id !== taskId);
-        const toItemIds   = [...toGroup.itemIds.filter(id => id !== taskId), taskId];
+        const toItemIds   = newToItemIds ?? [...toGroup.itemIds.filter(id => id !== taskId), taskId];
 
         const allTasks    = this.tasks$.getValue();
         const movedTask: Task = { ...task, groupId: toGroupId };
@@ -427,6 +427,36 @@ export class CanvasDataService {
                 groupId: (t as any).groupId ?? null,
             })),
         ]).pipe(map(() => ({ updatedTasks: allUpdated, updatedGroups: [updFromGroup, updToGroup] })));
+    }
+
+    reorderGroup(groupId: string, newItemIds: string[], currentTasks: Task[]): Observable<Task[]> {
+        const existing = this.groups$.getValue().find(g => (g._id as any) === groupId);
+        if (!existing) { return of([]); }
+
+        const groupTasks = newItemIds
+            .map(id => currentTasks.find(t => (t._id as any) === id))
+            .filter((t): t is Task => !!t);
+
+        const updatedGroupRef = { ...existing, itemIds: newItemIds };
+        const { itemLayouts, groupLayout } = this.computeGroupLayout(updatedGroupRef, groupTasks);
+        const finalGroup = { ...updatedGroupRef, layout: groupLayout };
+
+        this.groups$.next(this.groups$.getValue().map(g => (g._id as any) === groupId ? finalGroup : g));
+
+        if (groupTasks.length === 0) {
+            return this.groupApi.update(groupId, { itemIds: newItemIds, layout: groupLayout }).pipe(map(() => []));
+        }
+
+        const updatedTasks = groupTasks.map((t, i) => ({ ...t, layout: itemLayouts[i] }));
+        this.tasks$.next(this.tasks$.getValue().map(t => {
+            const u = updatedTasks.find(ut => (ut._id as any) === (t._id as any));
+            return u ?? t;
+        }));
+
+        return forkJoin([
+            this.groupApi.update(groupId, { itemIds: newItemIds, layout: groupLayout }),
+            ...updatedTasks.map(t => this.taskApi.update(t._id as string, { layout: t.layout })),
+        ]).pipe(map(() => updatedTasks));
     }
 
     relayoutGroup(groupId: string, currentTasks: Task[], resizeLayout?: Layout): Observable<Task[]> {
