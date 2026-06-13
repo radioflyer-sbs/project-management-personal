@@ -29,6 +29,7 @@ export class TaskCardComponent extends ComponentBase implements OnInit, OnChange
     @Output() taskEdited$      = new EventEmitter<{ title: string; description: string }>();
     @Output() urgencyChanged$  = new EventEmitter<TaskUrgency>();
     @Output() layoutChanged$   = new EventEmitter<{ task: Task; layout: Layout }>();
+    @Output() dragStarted$     = new EventEmitter<PointerEvent>();
 
     @ViewChild('titleInput')       private titleInputRef?: ElementRef<HTMLInputElement>;
     @ViewChild('descriptionInput') private descriptionInputRef?: ElementRef<HTMLTextAreaElement>;
@@ -196,15 +197,10 @@ export class TaskCardComponent extends ComponentBase implements OnInit, OnChange
 
     onMousedown(e: MouseEvent): void {
         if (e.button !== 0) { return; }
+        e.stopPropagation();
         this.dropdownOpen = false;
         this.selected$.emit(this.task);
-        this.interaction.startMove(
-            e as unknown as PointerEvent,
-            this.task._id as string,
-            true,
-            this.localLayout,
-            (e.currentTarget as HTMLElement),
-        );
+        this.dragStarted$.emit(e as unknown as PointerEvent);
     }
 
     onResizeMousedown(e: MouseEvent, handle: ResizeHandle): void {

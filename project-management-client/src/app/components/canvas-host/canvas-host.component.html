@@ -21,7 +21,7 @@
             [ngStyle]="gridStyle"
             (mousedown)="onCanvasMousedown($event)"
             (wheel)="onCanvasWheel($event)"
-            (click)="onCanvasClick($event)"
+            (click)="onCanvasClick()"
             (contextmenu)="onContextMenu($event)"
         >
             @if (loading) {
@@ -51,6 +51,7 @@
                             (selected$)="onGroupSelected($event)"
                             (titleChanged$)="onGroupTitleChanged(group, $event)"
                             (layoutConfigChanged$)="onGroupLayoutConfigChanged(group, $event)"
+                            (dragStarted$)="onGroupDragStarted(group, $event)"
                         />
                     }
                     @for (task of tasks; track task._id) {
@@ -62,6 +63,7 @@
                             (drillIn$)="onDrillIntoTask(task)"
                             (taskEdited$)="onTaskEdited(task, $event)"
                             (urgencyChanged$)="onTaskUrgencyChanged(task, $event)"
+                            (dragStarted$)="onTaskDragStarted(task, $event)"
                         />
                     }
                     @for (note of notes; track note._id) {
@@ -70,10 +72,14 @@
                             [selected]="isNoteSelected(note)"
                             (selected$)="onNoteSelected(note)"
                             (noteEdited$)="onNoteEdited(note, $event)"
+                            (dragStarted$)="onNoteDragStarted(note, $event)"
                         />
                     }
                 </div>
             }
+
+            <!-- Rubber-band selection overlay — styled/positioned via direct DOM in onCanvasMousedown -->
+            <div #rubberBandOverlay class="canvas-rubber-band" style="display:none;"></div>
 
             <app-canvas-context-menu
                 [items]="contextMenuItems"

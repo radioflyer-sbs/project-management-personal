@@ -23,6 +23,7 @@ export class NoteCardComponent extends ComponentBase implements OnInit, OnChange
 
     @Output() selected$    = new EventEmitter<Note>();
     @Output() noteEdited$  = new EventEmitter<{ title: string; details: string }>();
+    @Output() dragStarted$ = new EventEmitter<PointerEvent>();
 
     @ViewChild('titleInput')   private titleInputRef?: ElementRef<HTMLInputElement>;
     @ViewChild('detailsInput') private detailsInputRef?: ElementRef<HTMLTextAreaElement>;
@@ -43,6 +44,7 @@ export class NoteCardComponent extends ComponentBase implements OnInit, OnChange
         this.zone.runOutsideAngular(() => {
             this.interaction.moveDragging$.pipe(takeUntil(this.ngDestroy$)).subscribe(e => {
                 if (e.id !== this.note._id) { return; }
+                if (!e.hasMoved) { return; }
                 this.isDragging = true;
                 this.localLayout = e.layout;
                 this.applyLayoutDirect(e.layout);
@@ -58,8 +60,13 @@ export class NoteCardComponent extends ComponentBase implements OnInit, OnChange
         this.interaction.moveEnded$.pipe(takeUntil(this.ngDestroy$)).subscribe(e => {
             if (e.id !== this.note._id) { return; }
             this.isDragging = false;
-            this.localLayout = e.layout;
-            this.applyLayoutDirect(e.layout);
+            if (!e.hasMoved) {
+                this.localLayout = { ...this.note.layout };
+                this.applyLayoutDirect(this.note.layout);
+            } else {
+                this.localLayout = e.layout;
+                this.applyLayoutDirect(e.layout);
+            }
         });
         this.interaction.resizeEnded$.pipe(takeUntil(this.ngDestroy$)).subscribe(e => {
             if (e.id !== this.note._id) { return; }
@@ -143,14 +150,9 @@ export class NoteCardComponent extends ComponentBase implements OnInit, OnChange
 
     onMousedown(e: MouseEvent): void {
         if (e.button !== 0) { return; }
+        e.stopPropagation();
         this.selected$.emit(this.note);
-        this.interaction.startMove(
-            e as unknown as PointerEvent,
-            this.note._id as string,
-            false,
-            this.localLayout,
-            (e.currentTarget as HTMLElement),
-        );
+        this.dragStarted$.emit(e as unknown as PointerEvent);
     }
 
     onResizeMousedown(e: MouseEvent, handle: ResizeHandle): void {

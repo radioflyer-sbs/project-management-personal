@@ -76,4 +76,17 @@ export class DeletionService {
             },
         });
     }
+
+    /** Show a single confirmation dialog for bulk deletion; the caller handles all API/state work. */
+    confirmDelete(header: string, message: string, onAccept: () => void): void {
+        this.confirmation.confirm({
+            header,
+            message,
+            icon: 'pi pi-exclamation-triangle',
+            accept: () => {
+                this.selection.clear();
+                onAccept();
+            },
+        });
+    }
 }

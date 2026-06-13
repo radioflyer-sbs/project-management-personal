@@ -1,6 +1,6 @@
-import { Component, inject, OnInit, OnDestroy, ElementRef, ViewChild, HostListener } from '@angular/core';
+import { Component, inject, OnInit, ElementRef, ViewChild, HostListener, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router, NavigationEnd } from '@angular/router';
+import { Router, NavigationEnd } from '@angular/router';
 import { takeUntil, filter, catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { ButtonModule } from 'primeng/button';
@@ -13,11 +13,12 @@ import { ComponentBase } from '../component-base/component-base.component';
 import { ViewportService } from '../../services/viewport.service';
 import { CanvasDataService } from '../../services/canvas-data.service';
 import { CanvasInteractionService } from '../../services/canvas-interaction.service';
-import { SelectionService } from '../../services/selection.service';
+import { SelectionService, SelectableItem } from '../../services/selection.service';
 import { NavigationService } from '../../services/navigation.service';
 import { ProjectsService } from '../../services/projects.service';
 import { DeletionService } from '../../services/deletion.service';
 import { TaskApiClient } from '../../services/api-clients/task-api.client';
+import { NoteApiClient } from '../../services/api-clients/note-api.client';
 import { TaskCardComponent } from '../canvas/task-card/task-card.component';
 import { NoteCardComponent } from '../canvas/note-card/note-card.component';
 import { GroupCardComponent } from '../canvas/group-card/group-card.component';
@@ -48,9 +49,9 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
 
     constructor() { super(); }
 
-    @ViewChild('canvasArea') canvasAreaRef!: ElementRef<HTMLElement>;
+    @ViewChild('canvasArea')        canvasAreaRef!: ElementRef<HTMLElement>;
+    @ViewChild('rubberBandOverlay') rubberBandOverlayRef?: ElementRef<HTMLElement>;
 
-    private readonly route       = inject(ActivatedRoute);
     private readonly router      = inject(Router);
     readonly viewport            = inject(ViewportService);
     readonly canvasData          = inject(CanvasDataService);
@@ -60,6 +61,8 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
     private readonly projects    = inject(ProjectsService);
     private readonly deletion    = inject(DeletionService);
     private readonly taskApi     = inject(TaskApiClient);
+    private readonly noteApi     = inject(NoteApiClient);
+    private readonly zone        = inject(NgZone);
 
     tasks:      Task[]   = [];
     notes:      Note[]   = [];
@@ -81,6 +84,8 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
     contextMenuY = 0;
     contextMenuCanvasX = 0;
     contextMenuCanvasY = 0;
+
+    private shiftHeld = false;
 
     readonly contextMenuItems: ContextMenuItem[] = [
         { label: 'Add Task',  icon: 'pi-plus-circle', action: 'add-task'  },
@@ -366,7 +371,93 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         };
     }
 
-    onCanvasMousedown(e: MouseEvent): void { this.interaction.onCanvasMousedown(e); }
+    onCanvasMousedown(e: MouseEvent): void {
+        if (e.button === 1) { this.interaction.onCanvasMousedown(e); return; }
+        if (e.button !== 0) { return; }
+
+        const canvasAreaEl = this.canvasAreaRef.nativeElement;
+        const areaRect     = canvasAreaEl.getBoundingClientRect();
+        const startX = e.clientX - areaRect.left;
+        const startY = e.clientY - areaRect.top;
+        const shiftKey = e.shiftKey;
+        const ctrlKey  = e.ctrlKey || e.metaKey;
+
+        let curX = startX;
+        let curY = startY;
+
+        this.zone.runOutsideAngular(() => {
+            const onMove = (me: MouseEvent) => {
+                const r = canvasAreaEl.getBoundingClientRect();
+                curX = me.clientX - r.left;
+                curY = me.clientY - r.top;
+                const x = Math.min(startX, curX);
+                const y = Math.min(startY, curY);
+                const w = Math.abs(curX - startX);
+                const h = Math.abs(curY - startY);
+                this.applyRubberBand(x, y, w, h);
+            };
+
+            const onUp = () => {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup',  onUp);
+
+                const w = Math.abs(curX - startX);
+                const h = Math.abs(curY - startY);
+                this.clearRubberBand();
+
+                this.zone.run(() => {
+                    if (w < 5 && h < 5) {
+                        // Treat as a click on empty canvas
+                        if (!shiftKey && !ctrlKey) { this.selection.clear(); }
+                    } else {
+                        // Actual rubber-band: convert to canvas coordinates
+                        const c1 = this.viewport.screenToCanvas(Math.min(startX, curX), Math.min(startY, curY));
+                        const c2 = this.viewport.screenToCanvas(Math.max(startX, curX), Math.max(startY, curY));
+                        const selRect = { x: c1.x, y: c1.y, w: c2.x - c1.x, h: c2.y - c1.y };
+                        const hits = this.findItemsInRect(selRect);
+
+                        if (shiftKey) {
+                            this.selection.addMany(hits);
+                        } else if (ctrlKey) {
+                            this.selection.removeIds(hits.map(h => h.item._id as string));
+                        } else {
+                            this.selection.selectMany(hits);
+                        }
+                    }
+                });
+            };
+
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup',  onUp);
+        });
+    }
+
+    private applyRubberBand(x: number, y: number, w: number, h: number): void {
+        const el = this.rubberBandOverlayRef?.nativeElement;
+        if (!el) { return; }
+        el.style.display = 'block';
+        el.style.left    = `${x}px`;
+        el.style.top     = `${y}px`;
+        el.style.width   = `${w}px`;
+        el.style.height  = `${h}px`;
+    }
+
+    private clearRubberBand(): void {
+        const el = this.rubberBandOverlayRef?.nativeElement;
+        if (el) { el.style.display = 'none'; }
+    }
+
+    private findItemsInRect(rect: { x: number; y: number; w: number; h: number }): SelectableItem[] {
+        const hits: SelectableItem[] = [];
+        const overlaps = (l: Layout) =>
+            l.x < rect.x + rect.w && l.x + l.width  > rect.x &&
+            l.y < rect.y + rect.h && l.y + l.height > rect.y;
+
+        this.tasks.forEach(t => { if (overlaps(t.layout)) { hits.push({ type: 'task',  item: t }); } });
+        this.notes.forEach(n => { if (overlaps(n.layout)) { hits.push({ type: 'note',  item: n }); } });
+        this.groups.forEach(g => { if (overlaps(g.layout)) { hits.push({ type: 'group', item: g }); } });
+        return hits;
+    }
 
     onCanvasWheel(e: WheelEvent): void {
         if (this.canvasAreaRef) {
@@ -374,9 +465,9 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         }
     }
 
-    onCanvasClick(e: MouseEvent): void {
-        this.selection.clear();
+    onCanvasClick(): void {
         this.contextMenuVisible = false;
+        // Selection clearing on empty-canvas click is handled in onCanvasMousedown's mouseup handler.
     }
 
     onContextMenu(e: MouseEvent): void {
@@ -408,27 +499,30 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
 
     onTaskSelected(task: Task): void {
         this.canvasData.bringToFront(task._id as string, true);
-        this.selection.select({ type: 'task', item: task });
+        if (!this.shiftHeld && this.selection.isSelected(task._id as string)) { return; }
+        this.selection.select({ type: 'task', item: task }, this.shiftHeld);
     }
 
     onNoteSelected(note: Note): void {
         this.canvasData.bringToFront(note._id as string, false);
-        this.selection.select({ type: 'note', item: note });
+        if (!this.shiftHeld && this.selection.isSelected(note._id as string)) { return; }
+        this.selection.select({ type: 'note', item: note }, this.shiftHeld);
     }
 
     onNoteEdited(note: Note, edit: { title: string; details: string }): void {
         const current = this.canvasData.getNoteById(note._id as string) ?? note;
         this.canvasData.updateNote({ ...current, title: edit.title, details: edit.details })
             .subscribe(result => {
-                if (this.isNoteSelected(result)) {
-                    this.selection.select({ type: 'note', item: result });
+                if (this.selection.isSelected(result._id as string)) {
+                    this.selection.updateItem({ type: 'note', item: result });
                 }
             });
     }
 
     onGroupSelected(group: Group): void {
         this.canvasData.bringGroupToFront(group._id as string);
-        this.selection.select({ type: 'group', item: group });
+        if (!this.shiftHeld && this.selection.isSelected(group._id as string)) { return; }
+        this.selection.select({ type: 'group', item: group }, this.shiftHeld);
     }
 
     onGroupTitleChanged(group: Group, title: string): void {
@@ -458,8 +552,8 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         const current = this.canvasData.getTaskById(task._id as string) ?? task;
         this.canvasData.updateTask({ ...current, title: edit.title, description: edit.description })
             .subscribe(result => {
-                if (this.isTaskSelected(result)) {
-                    this.selection.select({ type: 'task', item: result });
+                if (this.selection.isSelected(result._id as string)) {
+                    this.selection.updateItem({ type: 'task', item: result });
                 }
             });
     }
@@ -468,8 +562,8 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         const current = this.canvasData.getTaskById(task._id as string) ?? task;
         this.canvasData.updateTask({ ...current, urgency })
             .subscribe(result => {
-                if (this.isTaskSelected(result)) {
-                    this.selection.select({ type: 'task', item: result });
+                if (this.selection.isSelected(result._id as string)) {
+                    this.selection.updateItem({ type: 'task', item: result });
                 }
             });
     }
@@ -480,19 +574,86 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
             .map(t => ({ id: t._id as string, isTask: true, layout: t.layout }));
     }
 
-    isTaskSelected(task: Task): boolean {
-        const sel = this.selection.current;
-        return sel?.type === 'task' && sel.item._id === task._id;
+    isTaskSelected(task: Task):   boolean { return this.selection.isSelected(task._id  as string); }
+    isNoteSelected(note: Note):   boolean { return this.selection.isSelected(note._id  as string); }
+    isGroupSelected(group: Group): boolean { return this.selection.isSelected(group._id as string); }
+
+    // --- Drag routing ---
+
+    /**
+     * Builds the payload for startMoveMany.
+     * Selected groups move with all their contained items.
+     * Selected tasks/notes that are inside a selected group are excluded from the
+     * independent list (the group's movement already carries them).
+     */
+    private buildMultiDragPayload(): {
+        independentItems: Array<{ id: string; isTask: boolean; layout: Layout }>;
+        movingGroups: Array<{ id: string; layout: Layout; containedItems: Array<{ id: string; isTask: boolean; layout: Layout }> }>;
+    } {
+        const selected = this.selection.selectedItems;
+        const selectedGroupIds = new Set(
+            selected.filter(s => s.type === 'group').map(s => s.item._id as string)
+        );
+
+        const movingGroups = selected
+            .filter(s => s.type === 'group')
+            .map(s => {
+                const g = this.groups.find(gg => (gg._id as any) === (s.item._id as any)) ?? (s.item as Group);
+                return { id: g._id as string, layout: g.layout, containedItems: this.getGroupContainedItems(g) };
+            });
+
+        const independentItems = selected
+            .filter(s => s.type !== 'group')
+            .filter(s => {
+                if (s.type === 'task') {
+                    const groupId = (s.item as any).groupId;
+                    return !groupId || !selectedGroupIds.has(groupId as string);
+                }
+                return true;
+            })
+            .map(s => {
+                if (s.type === 'task') {
+                    const t = this.tasks.find(t => (t._id as any) === (s.item._id as any)) ?? (s.item as Task);
+                    return { id: t._id as string, isTask: true, layout: t.layout };
+                }
+                const n = this.notes.find(n => (n._id as any) === (s.item._id as any)) ?? (s.item as Note);
+                return { id: n._id as string, isTask: false, layout: n.layout };
+            });
+
+        return { independentItems, movingGroups };
     }
 
-    isNoteSelected(note: Note): boolean {
-        const sel = this.selection.current;
-        return sel?.type === 'note' && sel.item._id === note._id;
+    onTaskDragStarted(task: Task, e: PointerEvent): void {
+        const isMulti = this.selection.selectedItems.length > 1 && this.selection.isSelected(task._id as string);
+        if (isMulti) {
+            const { independentItems, movingGroups } = this.buildMultiDragPayload();
+            this.interaction.startMoveMany(e, independentItems, movingGroups);
+        } else {
+            const current = this.tasks.find(t => (t._id as any) === (task._id as any)) ?? task;
+            this.interaction.startMove(e, current._id as string, true, current.layout);
+        }
     }
 
-    isGroupSelected(group: Group): boolean {
-        const sel = this.selection.current;
-        return sel?.type === 'group' && (sel.item._id as any) === (group._id as any);
+    onNoteDragStarted(note: Note, e: PointerEvent): void {
+        const isMulti = this.selection.selectedItems.length > 1 && this.selection.isSelected(note._id as string);
+        if (isMulti) {
+            const { independentItems, movingGroups } = this.buildMultiDragPayload();
+            this.interaction.startMoveMany(e, independentItems, movingGroups);
+        } else {
+            const current = this.notes.find(n => (n._id as any) === (note._id as any)) ?? note;
+            this.interaction.startMove(e, current._id as string, false, current.layout);
+        }
+    }
+
+    onGroupDragStarted(group: Group, e: PointerEvent): void {
+        const isMulti = this.selection.selectedItems.length > 1 && this.selection.isSelected(group._id as string);
+        if (isMulti) {
+            const { independentItems, movingGroups } = this.buildMultiDragPayload();
+            this.interaction.startMoveMany(e, independentItems, movingGroups);
+        } else {
+            const current = this.groups.find(g => (g._id as any) === (group._id as any)) ?? group;
+            this.interaction.startMoveGroup(e, current._id as string, current.layout, this.getGroupContainedItems(current));
+        }
     }
 
     goBack(): void { this.navigation.navigateToParent(); }
@@ -541,26 +702,66 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
 
     @HostListener('document:keydown', ['$event'])
     onDocumentKeydown(e: KeyboardEvent): void {
+        if (e.key === 'Shift') { this.shiftHeld = true; return; }
         if (e.key !== 'Delete') { return; }
+
         const tag = (e.target as HTMLElement).tagName.toLowerCase();
         if (tag === 'input' || tag === 'textarea' || (e.target as HTMLElement).isContentEditable) { return; }
 
-        const sel = this.selection.current;
-        if (sel?.type === 'task') {
-            this.deletion.deleteTask(sel.item._id as string, sel.item.title, () => {
-                this.canvasData.removeTask(sel.item._id as string);
-            });
-        } else if (sel?.type === 'note') {
-            this.deletion.deleteNote(sel.item._id as string, sel.item.title, () => {
-                this.canvasData.removeNote(sel.item._id as string);
-            });
-        } else if (sel?.type === 'group') {
-            this.deletion.deleteGroup(sel.item._id as string, sel.item.title, () => {
-                this.canvasData.deleteGroup(sel.item._id as string)
-                    .pipe(takeUntil(this.ngDestroy$))
-                    .subscribe();
-            });
+        const selected = this.selection.selectedItems;
+        if (selected.length === 0) { return; }
+
+        const tasks  = selected.filter(s => s.type === 'task').map(s => s.item  as Task);
+        const notes  = selected.filter(s => s.type === 'note').map(s => s.item  as Note);
+        const groups = selected.filter(s => s.type === 'group').map(s => s.item as Group);
+
+        // Build message that reads naturally for one or many items
+        let header: string;
+        let message: string;
+        if (selected.length === 1) {
+            const one = selected[0];
+            const name = (one.item as any).title ?? (one.item as any).name ?? '';
+            header  = `Delete ${one.type.charAt(0).toUpperCase() + one.type.slice(1)}`;
+            message = one.type === 'task'
+                ? `Delete "${name}" and all its children? This cannot be undone.`
+                : one.type === 'group'
+                    ? `Delete "${name}"? Contained tasks will be released back to the canvas.`
+                    : `Delete "${name}"? This cannot be undone.`;
+        } else {
+            const parts: string[] = [];
+            if (tasks.length)  { parts.push(`${tasks.length} task${tasks.length  !== 1 ? 's' : ''}`); }
+            if (notes.length)  { parts.push(`${notes.length} note${notes.length  !== 1 ? 's' : ''}`); }
+            if (groups.length) { parts.push(`${groups.length} group${groups.length !== 1 ? 's' : ''}`); }
+            header  = `Delete ${selected.length} Items`;
+            message = `Delete ${parts.join(', ')}? This cannot be undone.`;
         }
+
+        this.deletion.confirmDelete(header, message, () => {
+            groups.forEach(g => {
+                this.canvasData.deleteGroup(g._id as string)
+                    .pipe(takeUntil(this.ngDestroy$)).subscribe();
+            });
+            tasks.forEach(t => {
+                this.taskApi.delete(t._id as string).subscribe(() => {
+                    this.canvasData.removeTask(t._id as string);
+                });
+            });
+            notes.forEach(n => {
+                this.noteApi.delete(n._id as string).subscribe(() => {
+                    this.canvasData.removeNote(n._id as string);
+                });
+            });
+        });
+    }
+
+    @HostListener('document:keyup', ['$event'])
+    onDocumentKeyup(e: KeyboardEvent): void {
+        if (e.key === 'Shift') { this.shiftHeld = false; }
+    }
+
+    @HostListener('window:blur')
+    onWindowBlur(): void {
+        this.shiftHeld = false;
     }
 
     fitAll(): void {

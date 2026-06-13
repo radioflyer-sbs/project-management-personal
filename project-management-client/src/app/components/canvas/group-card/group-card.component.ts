@@ -22,9 +22,10 @@ export class GroupCardComponent extends ComponentBase implements OnInit, OnChang
     @Input() containedItems: Array<{ id: string; isTask: boolean; layout: Layout }> = [];
     @Input() selected = false;
 
-    @Output() selected$           = new EventEmitter<Group>();
-    @Output() titleChanged$       = new EventEmitter<string>();
+    @Output() selected$            = new EventEmitter<Group>();
+    @Output() titleChanged$        = new EventEmitter<string>();
     @Output() layoutConfigChanged$ = new EventEmitter<{ direction: 'vertical' | 'horizontal'; wrap: boolean }>();
+    @Output() dragStarted$         = new EventEmitter<PointerEvent>();
 
     private readonly interaction = inject(CanvasInteractionService);
     private readonly zone        = inject(NgZone);
@@ -38,6 +39,7 @@ export class GroupCardComponent extends ComponentBase implements OnInit, OnChang
         this.zone.runOutsideAngular(() => {
             this.interaction.moveDragging$.pipe(takeUntil(this.ngDestroy$)).subscribe(e => {
                 if ((e.id as any) !== (this.group._id as any)) { return; }
+                if (!e.hasMoved) { return; }
                 this.localLayout = e.layout;
                 this.applyLayoutDirect(e.layout);
             });
@@ -50,8 +52,13 @@ export class GroupCardComponent extends ComponentBase implements OnInit, OnChang
 
         this.interaction.moveEnded$.pipe(takeUntil(this.ngDestroy$)).subscribe(e => {
             if ((e.id as any) !== (this.group._id as any)) { return; }
-            this.localLayout = e.layout;
-            this.applyLayoutDirect(e.layout);
+            if (!e.hasMoved) {
+                this.localLayout = { ...this.group.layout };
+                this.applyLayoutDirect(this.group.layout);
+            } else {
+                this.localLayout = e.layout;
+                this.applyLayoutDirect(e.layout);
+            }
         });
         this.interaction.resizeEnded$.pipe(takeUntil(this.ngDestroy$)).subscribe(e => {
             if ((e.id as any) !== (this.group._id as any)) { return; }
@@ -89,13 +96,9 @@ export class GroupCardComponent extends ComponentBase implements OnInit, OnChang
 
     onTitleBarMousedown(e: MouseEvent): void {
         if (e.button !== 0 || this.editingTitle) { return; }
+        e.stopPropagation();
         this.selected$.emit(this.group);
-        this.interaction.startMoveGroup(
-            e as unknown as PointerEvent,
-            this.group._id as string,
-            this.localLayout ?? this.group.layout,
-            this.containedItems,
-        );
+        this.dragStarted$.emit(e as unknown as PointerEvent);
     }
 
     onTitleDblclick(e: MouseEvent): void {
