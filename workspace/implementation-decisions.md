@@ -156,6 +156,92 @@
 
 ---
 
+# Later sessions — grouping, multi-select, projection-to-parent (through 2026-06-13)
+
+> Decisions from the sessions after the first pass. They add three feature areas the original design
+> had deferred (multi-select, grouping, projection-to-parent) plus inline card editing. Canonical design
+> is reflected in `application-design.md` §5.9–5.10, §6.4, §8.7–8.9, §11–12.
+
+## D-IMPL-19 — Multi-select, multi-drag, multi-delete
+
+**Decision:** Selection is a **set** held by the global `SelectionService`. Shift-click adds, Ctrl/Cmd-click removes, plain click replaces; a rubber-band drag on empty canvas selects overlapping items (with the same modifier semantics). Dragging any selected item moves the whole selection; a selected group carries its contained items, and items already inside a selected group are not double-moved. Delete removes the entire selection behind one confirmation.
+
+**Why:** This was the original design's top "first expansion" candidate (old §14) and the foundation grouping builds on. Keeping it in the existing global selection service avoided a parallel state mechanism.
+
+---
+
+## D-IMPL-20 — Group is a container item, not a Canvas Host; reflow owns member layout
+
+**Decision:** A `Group` (new `groups` collection) is an item placed on a canvas that arranges other items on the **same** canvas. It is not a Canvas Host — it owns no nested canvas (preserves **P3**). A reflow engine in `CanvasDataService.computeGroupLayout` overwrites each member's `Layout` into a uniform cell, packed in `itemIds` order, by layout mode: **vertical**, **horizontal**, or **wrap**. One group dimension is user-controlled (width for vertical/wrap, height for horizontal) and the other is auto-computed from the member/row count and persisted into `group.layout`.
+
+**Why:** Grouping is a layout-and-membership concern, not a new level of nesting. Auto-sizing one dimension keeps groups tidy without violating **P1** for the items inside (their arrangement within the group is deterministic and user-driven via order).
+
+---
+
+## D-IMPL-21 — Group membership: `itemIds` authoritative + `groupId` back-ref + `preGroupLayout`
+
+**Decision:** `Group.itemIds` is the authoritative, ordered membership list; each member task also stores `groupId`, and saves `preGroupLayout` on entry (restored on exit). Drop position during a drag computes the insertion index. Enter / exit / reorder / move-between-groups are distinct `CanvasDataService` operations, each persisting the group plus affected items. Because reflow packs in `itemIds` order, **`itemIds` is the members' visual reading order** — no geometry is needed to read a group internally.
+
+**Why:** A single ordered source of truth (`itemIds`) makes both the visual reflow and the projection reading order (D-IMPL-26) fall out for free. `preGroupLayout` makes grouping non-destructive — leaving a group restores the item's prior free position.
+
+---
+
+## D-IMPL-22 — Group card hit-testing via `pointer-events`, not z-index
+
+**Decision:** The group card root is `pointer-events: none`; only its title bar and resize handles set `pointer-events: auto`. The contained item cards therefore always receive their own clicks.
+
+**Why:** Bringing a group to front raises its `zIndex` above the cards it contains, so a pointer-events-enabled root would swallow clicks meant for those cards (the cards became unselectable/unmovable inside horizontal groups). Decoupling hit-testing from stacking order fixes it permanently regardless of z-order.
+
+---
+
+## D-IMPL-23 — Inline card editing added (updates D6)
+
+**Decision:** Task cards gained inline editing in addition to the Details Pane: double-click title/description to edit in place, an urgency picker dropdown in the status bar, a completion toggle, and a project-to-parent toggle. The Details Pane remains the complete editor.
+
+**Why:** D6 originally deferred inline editing to keep one editing model. In practice, fast in-place edits on the card are worth the second surface; the pane is still authoritative and uniform across project/task/note.
+
+---
+
+## D-IMPL-24 — Projection to parent: opt-in flag + children embedded by aggregate
+
+**Decision:** `Task.projectToParent` opts a child into its parent's card list. Canvas loads use a *with-projections* aggregate (`…/with-projections`) whose `$lookup` sub-pipeline embeds each task's opted-in **direct** children as `projectedChildren` (`_id`, `title`, `urgency`, `isComplete`), sorted by `projectionOrder`. The toggle lives in the Details Pane and as an inline button on the child card. Top-level tasks (parent = project) do not offer it.
+
+**Why:** Embedding via aggregate avoids a second round-trip and delivers the parent card's list pre-ordered, so the client renders it with zero computation. Keeping it to 1st-level direct children keeps the parent card legible.
+
+---
+
+## D-IMPL-25 — `projectionOrder` reading-order algorithm (layout-derived, not urgency)
+
+**Decision:** Order is computed from the parent canvas layout by a pure util (`projection-order.util.ts`): top-level units (loose items + each group as its bounding box) are banded into rows by **vertical overlap** (connected-components, threshold `ROW_OVERLAP_RATIO = 0.4`), rows run top→bottom and members left→right, with urgency only as a positional tiebreaker. A group **expands in place** into its `itemIds` order at the rank its box earned. Geometry runs only at the free top level — never inside a group.
+
+**Why:** Mirrors how a person reads a page (rows top-down, left-right within a row), which is the user's stated intent for "priority." Connected-component banding avoids the non-transitive-comparator trap; deferring inside-group order to `itemIds` removes all ambiguity there.
+
+---
+
+## D-IMPL-26 — `projectionOrder` computed on write, coalesced per parent
+
+**Decision:** `ProjectionOrderService.scheduleRecompute(parentTaskId)` is called by the task/group routers after writes that affect order (layout, grouping, urgency, create/delete) — never on view-state-only updates. It coalesces a transition's many writes via a trailing timer (per parent), then runs the pure algorithm and persists changed ranks with one bulk write. The read path is a plain `$sort` on `projectionOrder`.
+
+**Why:** The ordering is graph/tree work — wrong for a Mongo pipeline, and wasteful on every read. Computing on write, coalesced, runs it at most once per layout transition (the user's explicit constraint) and keeps reads trivial. The recompute's own writes use a dedicated bulk path, so they don't re-trigger it.
+
+---
+
+## D-IMPL-27 — Completion toggles on cards and projected rows; optimistic projected-child patch
+
+**Decision:** Completion is toggleable from (a) the card's status bar (a circle that fills to a green check) and (b) each row of a parent's projected list. Completed projected children render struck-through, color-neutralized, with a check icon. The projected-row toggle persists the child task directly (it isn't loaded in the grandparent view) and optimistically patches the parent's embedded `projectedChildren` for instant feedback.
+
+**Why:** Lets a task be completed without opening the Details Pane, in both the place you see the card and the place you see its summary. Toggling completion is deliberately *not* an order input (it never triggers a projection recompute) — consistent with D5 (completion never cascades).
+
+---
+
+## D-IMPL-28 — Card flex layout: description fills, projected list shrinks & scrolls
+
+**Decision:** On a card, the description region fills free space (and has a small min-height floor) while the projected-children list is the element that shrinks when the card is short: it scrolls (scrollbar hidden) and shows a bottom fade + chevron when clipping. The status bar stays pinned to the bottom. Overflow is detected with a `ResizeObserver` (card resize mutates height via direct DOM, outside Angular change detection), with state updates deferred to avoid `ExpressionChangedAfterItHasBeenCheckedError`.
+
+**Why:** Before this, a long projected list squeezed the description out and pushed the status bar. Making the list the shrink target keeps the description readable and the status bar anchored, with a clear "more below" affordance.
+
+---
+
 ## Open Questions for User Review
 
 1. **Resize minimum enforcement**: When a card is resized below `MIN_ITEM_WIDTH`/`MIN_ITEM_HEIGHT`, the resize is clamped. Should the card "snap back" visually (yes, per spec) or also show an error? Currently: silently clamps.

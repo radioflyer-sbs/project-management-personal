@@ -115,6 +115,11 @@ Project  (root canvas host)
 - A Note follows the same placement rule (owned by a Project, optionally on a parent Task's canvas)
   but can never own children.
 
+A third item type — the **Group** — was added after the initial design (see §5.9 and §8.8). A Group is a
+labeled container placed on a canvas that visually collects items and arranges them in a chosen layout
+direction. Groups are **organizational containers, not Canvas Hosts**: they do not own a nested canvas;
+their members remain items on the *same* canvas, repositioned by the group's reflow engine.
+
 ---
 
 ## 5. Data Model
@@ -217,6 +222,23 @@ export interface Task extends DbEntity {
     layout: Layout;
     /** Saved pan/zoom of this task's own (child) canvas. */
     viewState?: CanvasViewState;
+
+    // --- Grouping (this task may belong to a Group on its canvas; §5.9, §8.8) ---
+    /** Id of the Group this task is a member of, if any. */
+    groupId?: string;
+    /** The task's free layout from before it joined a group; restored on exit. */
+    preGroupLayout?: Layout;
+
+    // --- Projection to parent (§5.10, §8.9) ---
+    /** When true, this task surfaces in its parent task's projected-children list. */
+    projectToParent?: boolean;
+    /** Reading-order rank among the parent's direct children, derived from the parent's
+     *  canvas layout and computed server-side on layout changes. Lower sorts first. */
+    projectionOrder?: number;
+    /** DERIVED, not stored on this document. Populated only when this task is loaded as a
+     *  parent via the "with-projections" aggregate (§6.4): the opted-in direct children,
+     *  ordered by `projectionOrder`. */
+    projectedChildren?: ProjectedChild[];
 }
 ```
 
@@ -266,10 +288,67 @@ export enum TaskUrgency {
 export const MIN_ITEM_WIDTH = 160;
 export const MIN_ITEM_HEIGHT = 100;
 
+/** Default sizes for newly-created items and groups. */
+export const DEFAULT_ITEM_WIDTH = 240;
+export const DEFAULT_ITEM_HEIGHT = 140;
+export const DEFAULT_GROUP_WIDTH = 420;
+export const DEFAULT_GROUP_HEIGHT = 340;
+
+/** Group reflow metrics (canvas-space units). */
+export const GROUP_TITLE_HEIGHT = 36;
+export const GROUP_PADDING = 12;
+export const GROUP_CARD_GAP = 8;
+export const GROUP_ITEM_HEIGHT = DEFAULT_ITEM_HEIGHT;
+export const GROUP_ITEM_WIDTH  = DEFAULT_ITEM_WIDTH;
+
 /** Zoom bounds and step. */
 export const ZOOM_MIN = 0.1;
 export const ZOOM_MAX = 4;
 export const ZOOM_STEP = 1.1; // multiplicative per wheel notch
+```
+
+### 5.9 Group
+
+A Group is a labeled container that collects items on a canvas and reflows them in a chosen direction
+(§8.8). It is a persisted entity in its own `groups` collection. Membership is the **authoritative
+ordered list** `itemIds`; each member task also back-references the group via `Task.groupId`.
+
+```typescript
+export type GroupLayoutDirection = 'vertical' | 'horizontal';
+
+/** A labeled container that arranges other items on the same canvas. */
+export interface Group extends DbEntity {
+    /** Owning project. */
+    projectId: ObjectId;
+    /** Canvas this group lives on; undefined means the project canvas. */
+    parentTaskId?: ObjectId;
+    /** Editable group label. */
+    title: string;
+    /** Position/size of the group box on its canvas. One dimension is user-controlled,
+     *  the other is auto-computed from the member count (§8.8). */
+    layout: Layout;
+    /** Ordered ids of contained items. This sequence *is* the members' reading order. */
+    itemIds: string[];
+    /** Primary arrangement axis; defaults to 'vertical'. */
+    layoutDirection?: GroupLayoutDirection;
+    /** When true (horizontal only), members wrap into rows. */
+    layoutWrap?: boolean;
+}
+```
+
+### 5.10 ProjectedChild (derived, embedded)
+
+Not a collection. This is the lightweight shape embedded into a parent `Task.projectedChildren` by the
+"with-projections" aggregate (§6.4). It is a read-only projection of a child task — never written back.
+
+```typescript
+/** A single opted-in child summarized on its parent's card (§8.9). */
+export interface ProjectedChild {
+    _id: ObjectId;
+    title: string;
+    urgency: TaskUrgency;
+    isComplete: boolean;
+}
 ```
 
 ---
@@ -286,6 +365,13 @@ Three collections, related by `_id` references (per the vision). Register names 
 | `projects` | `Project` documents |
 | `tasks`    | `Task` documents    |
 | `notes`    | `Note` documents    |
+| `groups`   | `Group` documents (§5.9) |
+
+> A `groups` collection was added with the grouping feature. Groups are scoped to a canvas exactly like
+> items — by `projectId` and optional `parentTaskId` — so the same canvas-scoped query shapes apply
+> (`{ projectId, parentTaskId: { $exists: false } }` for the project canvas, `{ parentTaskId }` for a task
+> canvas). Group indexes are not yet created in `system-setup.ts`; at human scale (dozens of groups per
+> canvas) this is acceptable, and mirroring the task/note indexes is the obvious step if it ever matters.
 
 ### 6.2 Relationships & indexes
 
@@ -320,6 +406,25 @@ Deleting a **Note** deletes just that note.
 
 This multi-step process is owned by a dedicated server service (see §11.2), never duplicated in route
 handlers (**P7**).
+
+### 6.4 Projected children & reading order (supports §8.9)
+
+A parent task's card lists the direct children that opted into projection (`projectToParent === true`).
+Two server mechanisms make this cheap and correct:
+
+- **Embedding (read path).** Loading a canvas uses a *"with-projections"* variant
+  (`GET …/with-projections`) that runs a `$lookup` sub-pipeline per task to embed its opted-in direct
+  children as `projectedChildren` (`_id`, `title`, `urgency`, `isComplete`), **sorted by
+  `projectionOrder`**. The grandparent canvas thus receives each parent card's child list already
+  ordered, with no client-side computation. `$lookup` preserves the sub-pipeline's sort order in the
+  emitted array.
+
+- **Reading order (write path).** `projectionOrder` is the rank of a child among **all** its parent's
+  direct children (independent of the projection flag, so toggling projection never forces a recompute).
+  It is derived from the parent canvas's 2-D layout by a pure, tested function and persisted per child
+  via a single bulk write. The pass is triggered **on write** — coalesced per parent task (trailing
+  debounce) so a transition's many layout writes collapse into one recompute that runs after they land.
+  See §8.9 for the ordering algorithm and §11.2/§12.2 for the owning services.
 
 ---
 
@@ -369,14 +474,19 @@ Text on all backgrounds uses `--color-text-on-card` for contrast. Define these a
 
 ### 7.3 Completion & selection states
 
-- **Complete task:** visually de-emphasized — recommended treatment is a reduced-opacity card with a
-  check indicator in the header and a strikethrough title. (Exact visual treatment is cosmetic and may
-  be tuned during build.)
+- **Complete task:** visually de-emphasized — the implemented treatment is `opacity: 0.55`, a
+  strikethrough title, and a `pi-check` indicator in the header (D-IMPL-16).
+- **Toggling completion:** completion has a direct toggle on the card's status bar (a circle that fills
+  to a green check when complete), so a task can be completed without opening the Details Pane. Completed
+  children also render struck-through and color-neutralized in their parent's projected list, with their
+  own inline toggle there (§8.9).
 - **Completion is per-item and never cascades (D5).** Completing a task changes only that task's
   `isComplete`; its sub-tasks and notes are untouched. This keeps the user's mental model exact and
   makes completion losslessly reversible — un-completing a task later restores the subtree to the
   identical state it had before.
-- **Selected item:** an accent outline plus resize handles. Exactly one item is selected at a time.
+- **Selected item(s):** an accent outline plus resize handles. Selection is **multi-item** (§8.7); the
+  Details Pane reflects a single primary selection, falling back to the canvas host when nothing is
+  selected.
 
 ---
 
@@ -410,6 +520,7 @@ content, or origin if empty). Persist changes debounced to avoid write storms.
 ### 8.5 Selection rules
 
 - **Single-click** an item → select it (Details Pane shows its properties).
+- **Shift / Ctrl-click** and **rubber-band drag** extend or modify a multi-selection (§8.7).
 - **Click empty canvas** → clear selection; the Details Pane falls back to the **current Canvas Host**
   (the project on a project canvas; the task on a task canvas).
 - **Double-click a Task** → drill in (navigate to that task's canvas).
@@ -421,6 +532,66 @@ content, or origin if empty). Persist changes debounced to avoid write storms.
 - On drag/resize **end**, persist the new `Layout` via the canvas service. In-flight changes update
   local observable state immediately for responsiveness (**P4/P5**).
 - Bringing an item forward updates its `zIndex`.
+
+### 8.7 Multi-selection & multi-drag
+
+Selection is a set, not a single item (this fulfills the first expansion anticipated in the original §14).
+
+- **Shift-click** adds to the selection; **Ctrl/Cmd-click** removes; a plain click selects just one.
+- **Rubber-band**: dragging on empty canvas draws a selection rectangle; items overlapping it are
+  selected (Shift adds, Ctrl removes, plain replaces).
+- **Multi-drag**: dragging any selected item moves the whole selection together. A selected **group**
+  carries all its contained items; items already inside a selected group are not moved twice.
+- **Multi-delete**: a single confirmation (**P6**) deletes every selected item, with a message that reads
+  naturally for one or many.
+
+### 8.8 Grouping (Group items)
+
+A **Group** (§5.9) collects items on a canvas and arranges them — the first concrete "grouping strategy"
+called for by **P0**. Grouping is a layout-and-membership concern; it does **not** create a nested canvas
+(groups are not Canvas Hosts, **P3**).
+
+- **Layout modes** (`layoutDirection` + `layoutWrap`): **vertical** (stacked), **horizontal** (a row), or
+  **wrap** (horizontal rows that wrap). The user picks the mode from controls on the selected group's
+  title bar.
+- **Reflow engine.** A group owns the layout of its members: it overwrites each member's `Layout` to a
+  uniform cell packed in `itemIds` order. One group dimension is **user-controlled** (width for
+  vertical/wrap, height for horizontal) and the other is **auto-computed** from the member count/row
+  count; the computed dimension is persisted into `group.layout`. Because reflow packs in `itemIds` order,
+  **`itemIds` *is* the members' visual reading order** — no geometry is needed to read a group internally.
+- **Membership.** `Group.itemIds` is the authoritative ordered list; each member task also stores
+  `groupId`. A task entering a group saves its `preGroupLayout`; leaving restores it. Drop position
+  during a drag determines the insertion index within `itemIds`. Entering, leaving, reordering, and
+  moving between groups are distinct operations on the canvas data service, each persisting the group
+  plus the affected items.
+- **Hit-testing (pointer-events).** The group card root is `pointer-events: none` so it never swallows
+  clicks meant for the cards layered above it; only its title bar and resize handles opt back in with
+  `pointer-events: auto`. This decouples correct interaction from z-index ordering, which a
+  bring-to-front can otherwise invert (D-IMPL-22).
+
+### 8.9 Projection to parent (projected children)
+
+A task that is a child of **another task** can opt to "project" a summary of itself onto its parent's
+card. The parent card shows a **"Sub-task progress"** list of its opted-in direct children (1st level
+only) — title + urgency — between the description and the status bar. This gives at-a-glance progress
+without drilling in. (Top-level tasks, whose parent is the project, have no parent card to project onto
+and so do not offer the toggle.)
+
+- **Opt-in.** `Task.projectToParent` is toggled from the Details Pane checkbox **and** an inline button
+  on the child card's status bar.
+- **Ordering = layout (not urgency).** The list is ordered by `projectionOrder`, a reading-order rank
+  derived from the **parent canvas layout** by a pure server-side function: top-level units (loose items
+  and groups, each by its box) are banded into rows by vertical overlap, rows run top→bottom and members
+  left→right, with urgency only as a positional tiebreaker. A **group expands in place** into its
+  `itemIds` order at the rank its box earned — geometry runs only at the free top level, never inside a
+  group. Computed on write, coalesced per parent (§6.4).
+- **Completion display & toggle.** Completed children render struck-through, color-neutralized, and with
+  a check icon; each row's leading icon is a **toggle** that flips the child's completion. The child task
+  lives on the parent's own canvas (not loaded in the grandparent view), so the toggle persists the child
+  directly and optimistically patches the parent's embedded `projectedChildren` copy for instant feedback.
+- **Card layout under projection.** On a card, the description fills available space and the projected
+  list is the element that shrinks when the card is short: the list scrolls (scrollbar hidden) and shows
+  a bottom fade + chevron hint when it is clipping. The status bar stays pinned to the bottom (D-IMPL-28).
 
 ---
 
@@ -498,15 +669,15 @@ every level (**P2**).
 | Service                    | Responsibility                                                                                                      |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `ViewportService`          | Holds live pan/zoom; converts screen ↔ canvas space; restores/persists `viewState`. One instance per active canvas. |
-| `CanvasInteractionService` | Pointer handling for move/resize/pan/zoom gestures; emits intent, delegates persistence to the canvas data service. |
-| `SelectionService`         | Current selection (project \| task \| note \| none); drives the Details Pane.                                       |
+| `CanvasInteractionService` | Pointer handling for move/resize/pan/zoom gestures, including multi-item drag and group drag (the group plus its contained items); emits intent, delegates persistence to the canvas data service. |
+| `SelectionService`         | The current selection **set** (tasks, notes, groups; §8.7); drives multi-drag/multi-delete and the Details Pane. Global singleton (D-IMPL-03).                                       |
 
 ### 11.2 Data / state services
 
 | Service              | Responsibility                                                                                                                                                           |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `ProjectsService`    | List/create/update/delete projects; exposes `projectListing$` with a reload subject.                                                                                     |
-| `CanvasDataService`  | For the current host, loads its tasks + notes; exposes them as observables; handles add/move/resize/complete/delete by delegating to API clients and triggering reloads. |
+| `CanvasDataService`  | For the current host, loads its tasks (via the *with-projections* endpoint, so each task carries its `projectedChildren`) + notes + groups; exposes them as observables; handles add/move/resize/complete/delete, all group operations (enter/exit/reorder/move-between, the reflow engine), and projected-child completion, by delegating to API clients. |
 | `NavigationService`  | Parses the URL task chain, builds the breadcrumb, exposes navigation helpers (drill in, go to parent, jump to crumb).                                                    |
 | `DeletionService`    | Wraps PrimeNG confirmation + the delete API call; the single entry point for all destructive actions (**P6**).                                                           |
 | `DetailsPaneService` | Tracks the edit buffer + dirty state for the selected entity; Accept persists, Cancel reverts.                                                                           |
@@ -514,7 +685,10 @@ every level (**P2**).
 ### 11.3 API clients
 
 Under `src/app/services/api-clients/`, extending `ApiClientBase`:
-- `ClientApiService` (or split into `ProjectApiClient`, `TaskApiClient`, `NoteApiClient` if it grows).
+- Split into focused clients: `ProjectApiClient`, `TaskApiClient`, `NoteApiClient`, `GroupApiClient`
+  (D-IMPL-11). `ClientApiService` is a thin re-export shim.
+- `TaskApiClient` includes the *with-projections* canvas loads (`by-project/:id/with-projections`,
+  `by-parent/:id/with-projections`) used to embed `projectedChildren` (§6.4).
 - One method per endpoint, all returning `Observable`s, typed with shared-models.
 - (Auth headers are scaffolded but unused — single-user app, no login.)
 
@@ -524,12 +698,16 @@ Under `src/app/services/api-clients/`, extending `ApiClientBase`:
 components/
 ├── component-base/
 ├── project-list/                 — project cards, create button
-├── canvas/                       — THE reusable canvas (P2): renders any host's items
-│   ├── canvas-item/              — base card rendering (move/resize/select)
-│   ├── task-card/                — task specialization (urgency color, completion, drill-in)
-│   └── note-card/                — note specialization (off-yellow header, body color)
-├── details-pane/                 — selection-driven editor (project | task | note)
-└── app-shell/                    — title + breadcrumb bar shared across the app
+├── canvas-host/                  — THE reusable canvas (P2): hosts any project/task canvas,
+│                                    owns the per-canvas services, renders items + the details pane
+├── canvas/
+│   ├── task-card/                — task card (urgency color/picker, completion toggle, drill-in,
+│   │   │                            project-to-parent toggle, inline title/description editing)
+│   │   └── task-projected-children/ — the "Sub-task progress" list on a parent card (§8.9)
+│   ├── note-card/                — note specialization (off-yellow header, body color)
+│   ├── group-card/               — group container card (title bar, layout-mode controls, reflow)
+│   └── canvas-context-menu/      — custom positioned right-click menu (D-IMPL-01)
+└── details-pane/                 — selection-driven editor (project | task | note)
 ```
 
 ---
@@ -541,19 +719,29 @@ Zod validation, global error handler, `DbCollectionNames`).
 
 ### 12.1 DB services
 
-`ProjectDbService`, `TaskDbService`, `NoteDbService` — each `@injectable()`, extending `DbService`, with
-CRUD plus the canvas-scoped and subtree queries from §6. Set `ancestorTaskIds` on insert.
+`ProjectDbService`, `TaskDbService`, `NoteDbService`, `GroupDbService` — each `@injectable()`, extending
+`DbService`, with CRUD plus the canvas-scoped and subtree queries from §6. Set `ancestorTaskIds` on insert.
+`TaskDbService` additionally owns the *with-projections* aggregates (§6.4) and `setProjectionOrders`
+(one bulk write that stamps the reading-order rank on many children).
 
 ### 12.2 Domain services
 
 - `CascadeDeleteService` — owns the multi-step subtree deletion (§6.3) across collections.
+- `ProjectionOrderService` — recomputes children's `projectionOrder` from the parent canvas layout
+  (§8.9). It is triggered on write by the task/group routers and **coalesces** a transition's writes per
+  parent task via a trailing timer, so the graph/tree ordering work runs at most once per layout
+  transition and the read path stays a plain `$sort` (§6.4). The pure ordering algorithm lives in a
+  separate, testable util (`projection-order.util.ts`); the service only loads, diffs, and persists.
 - Future grouping/organization features get their own services rather than bloating existing ones (**P7**).
 
 ### 12.3 Routes
 
-Route factories per concern: `createProjectRouter`, `createTaskRouter`, `createNoteRouter`. Validate
-incoming bodies with Zod (create/update payloads). Handlers `try/catch`, return early, defer unexpected
-errors to the global handler. No auth middleware on routes (single-user).
+Route factories per concern: `createProjectRouter`, `createTaskRouter`, `createNoteRouter`,
+`createGroupRouter`. Validate incoming bodies with Zod (create/update payloads). Handlers `try/catch`,
+return early, defer unexpected errors to the global handler. No auth middleware on routes (single-user).
+The task and group routers call `ProjectionOrderService.scheduleRecompute(parentTaskId)` after writes that
+can change reading order (task layout/grouping/urgency, group layout/membership/direction, and
+create/delete) — never on view-state-only updates (§6.4, §8.9).
 
 ---
 
@@ -569,20 +757,27 @@ so the reasoning survives.
 | D3  | **Materialized path (`ancestorTaskIds`)** | ✅ Adopt it on tasks and notes.                                                                                                                   | Makes subtree loads and cascade deletes cheap and non-recursive; small write-time cost; strongly supports the "expand later" mandate (**P7**).                                                                                                                                                                                                                       |
 | D4  | **Persist pan/zoom per canvas**           | ✅ Store `viewState` on each host.                                                                                                                | Directly serves the spatial-memory purpose (**P0/P1**).                                                                                                                                                                                                                                                                                                              |
 | D5  | **Completion cascade**                    | ✅ **No cascade.** Completing a task never changes its children; each item's `isComplete` is owned solely by that item.                            | The user must implicitly understand exactly what an action does — completing a parent must not silently alter children. It also makes completion **losslessly reversible**: un-completing a task later returns the subtree to the identical state it had before, because nothing else was ever touched. (This is independent of deletion, which *does* cascade — §6.3.) |
-| D6  | **Where notes/tasks are edited**          | ✅ All property editing happens in the **Details Pane** (uniform, per **P2**). Inline editing is deferred.                                         | Keeps one editing model across projects, tasks, and notes for now.                                                                                                                                                                                                                                                                                                  |
+| D6  | **Where notes/tasks are edited**          | ✅ The Details Pane remains the complete, uniform editor (**P2**). ⚠️ **Updated:** inline editing has *since been added* on cards as a convenience — title, description, urgency picker, completion toggle, and project-to-parent toggle (D-IMPL-23). | Started Details-Pane-only to keep one editing model; inline controls were layered on later for fast in-place edits without abandoning the pane as the full editor. |
 | D7  | **Urgency semantics**                     | ✅ Urgency is **entirely visual** — it sets card color and nothing else. No aggregation, no roll-up, no mechanical behavior.                       | There is no other mechanical part to urgency; deriving a parent's urgency from children would invent behavior the model doesn't have.                                                                                                                                                                                                                                |
 
 ---
 
 ## 14. Open / Deferred (not yet specified)
 
-Captured so they aren't forgotten; out of scope until the items above are settled:
+**Now implemented** (were deferred in the original design):
 
-- Multi-select and group-move (likely valuable for "grouping strategies," **P0** — a strong candidate for the first expansion).
+- **Multi-select & multi-drag** (§8.7).
+- **Grouping** — Group items with vertical/horizontal/wrap reflow (§8.8); the first "grouping strategy."
+- **Projection to parent** — projected children with layout-derived reading order (§8.9, §6.4).
+- **Inline editing** on cards (D6 update) and **inline completion toggles**.
+
+Still open / not yet specified:
+
 - Search / filtering across a project's tasks and notes.
 - Connectors or visual relationships between items beyond containment.
 - Export / import / backup of a project.
-- Keyboard shortcuts.
+- Fuller keyboard shortcuts (today: `Delete` removes the selection; `Shift`/`Ctrl` modify multi-select).
+- Additional grouping strategies beyond the Group container (**P7** anticipates more).
 
 ---
 

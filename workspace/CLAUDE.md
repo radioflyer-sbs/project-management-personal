@@ -22,7 +22,16 @@ There is no login system; all data is shared and accessible to the one user.
 **`application-design.md`** is the canonical design reference — design principles (P0–P8),
 the complete data model, canvas/interaction rules, routing, and architecture. It expands
 `application-details.md` (the original vision). Read it before implementing features.
-Section 13 ("Decisions to Confirm") lists open architectural forks awaiting sign-off.
+Section 13 ("Resolved Decisions", D1–D7) records the confirmed architectural forks and their rationale;
+§14 lists what's still open.
+
+Feature areas added after the first pass (see the design spec sections noted, and the matching
+`D-IMPL-19…28` in `implementation-decisions.md`):
+- **Groups** — container items with vertical/horizontal/wrap reflow (`groups` collection; §5.9, §8.8).
+- **Multi-select / multi-drag / multi-delete** (§8.7).
+- **Projection to parent** — a parent card lists its opted-in direct children, ordered by a
+  layout-derived reading order computed server-side (§5.10, §6.4, §8.9).
+- **Inline card editing** and **inline completion toggles** (§7.3; updates decision D6).
 
 ## Standards reference
 See `C:\Users\rolso\.claude\skills\mean-stack-project-setup\references\project-standards.md`
