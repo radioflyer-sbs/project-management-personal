@@ -63,6 +63,7 @@
                             (drillIn$)="onDrillIntoTask(task)"
                             (taskEdited$)="onTaskEdited(task, $event)"
                             (urgencyChanged$)="onTaskUrgencyChanged(task, $event)"
+                            (projectToParentChanged$)="onTaskProjectToParentChanged(task, $event)"
                             (dragStarted$)="onTaskDragStarted(task, $event)"
                         />
                     }

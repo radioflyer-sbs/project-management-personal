@@ -31,15 +31,23 @@ export class TaskApiClient extends ApiClientBase {
         return this.http.get<Task[]>(`${this.apiBaseUrl}/tasks/by-project/${projectId}`, this.buildOptions().build());
     }
 
+    getByProjectWithProjections(projectId: string): Observable<Task[]> {
+        return this.http.get<Task[]>(`${this.apiBaseUrl}/tasks/by-project/${projectId}/with-projections`, this.buildOptions().build());
+    }
+
     getByParentTask(parentTaskId: string): Observable<Task[]> {
         return this.http.get<Task[]>(`${this.apiBaseUrl}/tasks/by-parent/${parentTaskId}`, this.buildOptions().build());
+    }
+
+    getByParentTaskWithProjections(parentTaskId: string): Observable<Task[]> {
+        return this.http.get<Task[]>(`${this.apiBaseUrl}/tasks/by-parent/${parentTaskId}/with-projections`, this.buildOptions().build());
     }
 
     create(data: CreateTaskDto): Observable<Task> {
         return this.http.post<Task>(`${this.apiBaseUrl}/tasks`, data, this.buildOptions().build());
     }
 
-    update(id: string, data: Partial<{ title: string; description: string; urgency: TaskUrgency; isComplete: boolean; layout: Layout; viewState: CanvasViewState; groupId: string | null; preGroupLayout: Layout | null }>): Observable<Task> {
+    update(id: string, data: Partial<{ title: string; description: string; urgency: TaskUrgency; isComplete: boolean; projectToParent: boolean; layout: Layout; viewState: CanvasViewState; groupId: string | null; preGroupLayout: Layout | null }>): Observable<Task> {
         return this.http.put<Task>(`${this.apiBaseUrl}/tasks/${id}`, data, this.buildOptions().build());
     }
 

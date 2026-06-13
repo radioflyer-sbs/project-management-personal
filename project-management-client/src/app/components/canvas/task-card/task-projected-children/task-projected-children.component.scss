@@ -1,0 +1,43 @@
+.projected-children {
+    padding: 4px 6px 2px;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+
+    &__label {
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--color-text-on-card);
+        opacity: 0.45;
+        margin-bottom: 3px;
+    }
+
+    &__item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 2px 6px;
+        background: color-mix(in srgb, var(--accent, #8e98a8) 45%, white);
+        border-radius: 3px;
+        margin-bottom: 2px;
+        opacity: 0.78;
+
+        &:last-child { margin-bottom: 0; }
+    }
+
+    &__icon {
+        font-size: 0.62rem;
+        flex-shrink: 0;
+        color: var(--accent, #8e98a8);
+    }
+
+    &__title {
+        font-size: 0.72rem;
+        color: var(--color-text-on-card);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex: 1;
+        min-width: 0;
+    }
+}

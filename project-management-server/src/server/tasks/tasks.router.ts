@@ -27,14 +27,15 @@ const CreateTaskSchema = z.object({
 });
 
 const UpdateTaskSchema = z.object({
-    title:          z.string().min(1).optional(),
-    description:    z.string().optional(),
-    urgency:        z.nativeEnum(TaskUrgency).optional(),
-    isComplete:     z.boolean().optional(),
-    layout:         LayoutSchema.optional(),
-    viewState:      z.object({ panX: z.number(), panY: z.number(), zoom: z.number() }).optional(),
-    groupId:        z.string().nullable().optional(),
-    preGroupLayout: LayoutSchema.nullable().optional(),
+    title:           z.string().min(1).optional(),
+    description:     z.string().optional(),
+    urgency:         z.nativeEnum(TaskUrgency).optional(),
+    isComplete:      z.boolean().optional(),
+    projectToParent: z.boolean().optional(),
+    layout:          LayoutSchema.optional(),
+    viewState:       z.object({ panX: z.number(), panY: z.number(), zoom: z.number() }).optional(),
+    groupId:         z.string().nullable().optional(),
+    preGroupLayout:  LayoutSchema.nullable().optional(),
 });
 
 export function createTaskRouter(
@@ -76,12 +77,30 @@ export function createTaskRouter(
         }
     });
 
+    router.get('/by-project/:projectId/with-projections', async (req: Request, res: Response) => {
+        try {
+            const tasks = await taskDb.findByProjectWithProjections(new ObjectId(String(req.params.projectId)));
+            res.json(tasks);
+        } catch (err) {
+            res.status(500).json({ message: 'Failed to load tasks with projections' });
+        }
+    });
+
     router.get('/by-parent/:parentTaskId', async (req: Request, res: Response) => {
         try {
             const tasks = await taskDb.findByParentTask(new ObjectId(String(req.params.parentTaskId)));
             res.json(tasks);
         } catch (err) {
             res.status(500).json({ message: 'Failed to load tasks' });
+        }
+    });
+
+    router.get('/by-parent/:parentTaskId/with-projections', async (req: Request, res: Response) => {
+        try {
+            const tasks = await taskDb.findByParentTaskWithProjections(new ObjectId(String(req.params.parentTaskId)));
+            res.json(tasks);
+        } catch (err) {
+            res.status(500).json({ message: 'Failed to load tasks with projections' });
         }
     });
 

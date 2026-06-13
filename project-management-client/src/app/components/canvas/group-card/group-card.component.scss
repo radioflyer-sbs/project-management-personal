@@ -7,6 +7,7 @@
     flex-direction: column;
     background: rgba(59, 130, 246, 0.04);
     transition: box-shadow 0.1s, border-color 0.1s;
+    pointer-events: none;
 
     &--selected {
         border-style: solid;
@@ -26,6 +27,7 @@
         border-bottom: 1px solid rgba(59, 130, 246, 0.2);
         user-select: none;
         flex-shrink: 0;
+        pointer-events: auto;
     }
 
     &__icon {
@@ -124,6 +126,7 @@ $handle-color: var(--color-brand-primary);
     border-radius: 2px;
     opacity: 0;
     transition: opacity 0.15s;
+    pointer-events: auto;
 
     .group-card--selected & {
         opacity: 1;

@@ -34,6 +34,12 @@
                 <p-checkbox [(ngModel)]="editIsComplete" [binary]="true" inputId="complete" (ngModelChange)="onChange()" />
                 <label for="complete">Completed</label>
             </div>
+            @if (showProjectToParent) {
+                <div class="field field--inline">
+                    <p-checkbox [(ngModel)]="editProjectToParent" [binary]="true" inputId="projectToParent" (ngModelChange)="onChange()" />
+                    <label for="projectToParent">Project to parent</label>
+                </div>
+            }
             <div class="details-pane__actions">
                 <p-button label="Delete" icon="pi pi-trash" size="small" severity="danger" [text]="true" (onClick)="deleteTask()" />
             </div>

@@ -58,8 +58,8 @@ export class CanvasDataService {
 
     load(): void {
         const tasks$ = this.parentTaskId
-            ? this.taskApi.getByParentTask(this.parentTaskId)
-            : this.taskApi.getByProject(this.projectId);
+            ? this.taskApi.getByParentTaskWithProjections(this.parentTaskId)
+            : this.taskApi.getByProjectWithProjections(this.projectId);
 
         const notes$ = this.parentTaskId
             ? this.noteApi.getByParentTask(this.parentTaskId)
@@ -160,7 +160,11 @@ export class CanvasDataService {
         const id = task._id as any;
         this.tasks$.next(this.tasks$.getValue().map(t => (t._id as any) === id ? task : t));
         return this.taskApi.update(task._id as string, task).pipe(
-            tap(updated => this.tasks$.next(this.tasks$.getValue().map(t => (t._id as any) === (updated._id as any) ? updated : t)))
+            tap(serverResult => {
+                const existing = this.tasks$.getValue().find(t => (t._id as any) === (serverResult._id as any));
+                const merged = { ...serverResult, projectedChildren: existing?.projectedChildren };
+                this.tasks$.next(this.tasks$.getValue().map(t => (t._id as any) === (serverResult._id as any) ? merged : t));
+            })
         );
     }
 

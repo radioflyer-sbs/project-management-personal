@@ -53,6 +53,8 @@
         }
     </div>
 
+    <app-task-projected-children [children]="task.projectedChildren ?? []" />
+
     <div class="task-card__status-bar">
 
         <!-- Urgency picker -->
@@ -81,6 +83,19 @@
         </div>
 
         <div class="task-card__status-divider"></div>
+
+        @if (task.parentTaskId) {
+            <button
+                class="task-card__project-btn"
+                [class.task-card__project-btn--active]="task.projectToParent"
+                title="Project to parent"
+                (mousedown)="$event.stopPropagation()"
+                (click)="toggleProjectToParent($event)"
+            >
+                <i class="pi pi-upload"></i>
+            </button>
+            <div class="task-card__status-divider"></div>
+        }
 
         <span class="task-card__stat" [class.task-card__stat--zero]="!counts?.directSubTasks" title="Direct sub-tasks">
             <i class="pi pi-list"></i>{{ counts?.directSubTasks ?? 0 }}

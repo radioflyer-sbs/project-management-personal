@@ -568,6 +568,16 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
             });
     }
 
+    onTaskProjectToParentChanged(task: Task, projectToParent: boolean): void {
+        const current = this.canvasData.getTaskById(task._id as string) ?? task;
+        this.canvasData.updateTask({ ...current, projectToParent })
+            .subscribe(result => {
+                if (this.selection.isSelected(result._id as string)) {
+                    this.selection.updateItem({ type: 'task', item: result });
+                }
+            });
+    }
+
     getGroupContainedItems(group: Group): Array<{ id: string; isTask: boolean; layout: Layout }> {
         return this.tasks
             .filter(t => group.itemIds.includes(t._id as string))

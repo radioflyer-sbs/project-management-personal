@@ -121,10 +121,6 @@ export class GroupCardComponent extends ComponentBase implements OnInit, OnChang
         this.localTitle   = this.group.title;
     }
 
-    onCardClick(e: MouseEvent): void {
-        e.stopPropagation();
-    }
-
     onResizeMousedown(e: MouseEvent, handle: ResizeHandle): void {
         e.stopPropagation();
         this.selected$.emit(this.group);

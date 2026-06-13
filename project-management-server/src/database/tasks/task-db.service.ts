@@ -69,6 +69,48 @@ export class TaskDbService extends DbService {
         await this.dbHelper.deleteDataItems<Task>(DbCollectionNames.Tasks, filter as any);
     }
 
+    async findByProjectWithProjections(projectId: ObjectId): Promise<Task[]> {
+        const col = this.dbHelper.getCollection(DbCollectionNames.Tasks);
+        return col.aggregate<Task>([
+            { $match: { projectId, $or: [{ parentTaskId: { $exists: false } }, { parentTaskId: null }] } },
+            {
+                $lookup: {
+                    from: DbCollectionNames.Tasks,
+                    let: { taskId: '$_id' },
+                    pipeline: [
+                        { $match: { $expr: { $and: [
+                            { $eq: ['$parentTaskId', '$$taskId'] },
+                            { $eq: ['$projectToParent', true] },
+                        ]}}},
+                        { $project: { _id: 1, title: 1, urgency: 1 } },
+                    ],
+                    as: 'projectedChildren',
+                },
+            },
+        ]).toArray() as Promise<Task[]>;
+    }
+
+    async findByParentTaskWithProjections(parentTaskId: ObjectId): Promise<Task[]> {
+        const col = this.dbHelper.getCollection(DbCollectionNames.Tasks);
+        return col.aggregate<Task>([
+            { $match: { parentTaskId } },
+            {
+                $lookup: {
+                    from: DbCollectionNames.Tasks,
+                    let: { taskId: '$_id' },
+                    pipeline: [
+                        { $match: { $expr: { $and: [
+                            { $eq: ['$parentTaskId', '$$taskId'] },
+                            { $eq: ['$projectToParent', true] },
+                        ]}}},
+                        { $project: { _id: 1, title: 1, urgency: 1 } },
+                    ],
+                    as: 'projectedChildren',
+                },
+            },
+        ]).toArray() as Promise<Task[]>;
+    }
+
     async getSubTaskCounts(taskIds: ObjectId[]): Promise<{ direct: Map<string, number>; total: Map<string, number> }> {
         if (taskIds.length === 0) { return { direct: new Map(), total: new Map() }; }
         const col = this.dbHelper.getCollection(DbCollectionNames.Tasks);

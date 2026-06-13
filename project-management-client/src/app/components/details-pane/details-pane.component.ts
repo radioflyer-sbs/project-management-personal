@@ -48,12 +48,13 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
     selection: SelectedItem = null;
 
     // Edit buffers
-    editTitle       = '';
-    editDescription = '';
-    editDetails     = '';
+    editTitle            = '';
+    editDescription      = '';
+    editDetails          = '';
     editUrgency: TaskUrgency = TaskUrgency.Normal;
-    editIsComplete  = false;
-    editBgColor     = '#ffffff';
+    editIsComplete       = false;
+    editProjectToParent  = false;
+    editBgColor          = '#ffffff';
 
     // Host edit buffers
     hostName        = '';
@@ -108,19 +109,21 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
     private populateBuffers(sel: SelectedItem): void {
         if (!sel) {
             if (this.hostTask) {
-                this.editTitle       = this.hostTask.title;
-                this.editDescription = this.hostTask.description;
-                this.editUrgency     = this.hostTask.urgency;
-                this.editIsComplete  = this.hostTask.isComplete;
+                this.editTitle           = this.hostTask.title;
+                this.editDescription     = this.hostTask.description;
+                this.editUrgency         = this.hostTask.urgency;
+                this.editIsComplete      = this.hostTask.isComplete;
+                this.editProjectToParent = this.hostTask.projectToParent ?? false;
             } else if (this.hostProject) {
                 this.hostName        = this.hostProject.name;
                 this.hostDescription = this.hostProject.description;
             }
         } else if (sel.type === 'task') {
-            this.editTitle       = sel.item.title;
-            this.editDescription = sel.item.description;
-            this.editUrgency     = sel.item.urgency;
-            this.editIsComplete  = sel.item.isComplete;
+            this.editTitle           = sel.item.title;
+            this.editDescription     = sel.item.description;
+            this.editUrgency         = sel.item.urgency;
+            this.editIsComplete      = sel.item.isComplete;
+            this.editProjectToParent = sel.item.projectToParent ?? false;
         } else if (sel.type === 'note') {
             this.editTitle   = sel.item.title;
             this.editDetails = sel.item.details;
@@ -141,6 +144,10 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
 
     get showingProject(): boolean {
         return this.selection?.type === 'project' || (!this.selection && !!this.hostProject && !this.hostTask);
+    }
+
+    get showProjectToParent(): boolean {
+        return !!this.effectiveTask?.parentTaskId;
     }
 
     get effectiveTask(): Task | null {
@@ -164,10 +171,11 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
         const current = this.canvasData.getTaskById(selTask._id as string) ?? selTask;
         const updated: Task = {
             ...current,
-            title:       this.editTitle,
-            description: this.editDescription,
-            urgency:     this.editUrgency,
-            isComplete:  this.editIsComplete,
+            title:           this.editTitle,
+            description:     this.editDescription,
+            urgency:         this.editUrgency,
+            isComplete:      this.editIsComplete,
+            projectToParent: this.editProjectToParent,
         };
         this.canvasData.updateTask(updated).subscribe(result => {
             if (this.selection?.type === 'task') {

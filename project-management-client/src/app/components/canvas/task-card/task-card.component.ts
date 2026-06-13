@@ -8,11 +8,12 @@ import { Task } from '../../../../model/shared-models/task.model';
 import { Layout } from '../../../../model/shared-models/layout.model';
 import { TaskCounts } from '../../../../model/shared-models/task-counts.model';
 import { TaskUrgency } from '../../../../model/shared-models/task-urgency.enum';
+import { TaskProjectedChildrenComponent } from './task-projected-children/task-projected-children.component';
 
 @Component({
     selector: 'app-task-card',
     standalone: true,
-    imports: [CommonModule, FormsModule],
+    imports: [CommonModule, FormsModule, TaskProjectedChildrenComponent],
     templateUrl: './task-card.component.html',
     styleUrl: './task-card.component.scss',
 })
@@ -24,12 +25,13 @@ export class TaskCardComponent extends ComponentBase implements OnInit, OnChange
     @Input() selected = false;
     @Input() counts: TaskCounts | undefined;
 
-    @Output() selected$        = new EventEmitter<Task>();
-    @Output() drillIn$         = new EventEmitter<Task>();
-    @Output() taskEdited$      = new EventEmitter<{ title: string; description: string }>();
-    @Output() urgencyChanged$  = new EventEmitter<TaskUrgency>();
-    @Output() layoutChanged$   = new EventEmitter<{ task: Task; layout: Layout }>();
-    @Output() dragStarted$     = new EventEmitter<PointerEvent>();
+    @Output() selected$               = new EventEmitter<Task>();
+    @Output() drillIn$                = new EventEmitter<Task>();
+    @Output() taskEdited$             = new EventEmitter<{ title: string; description: string }>();
+    @Output() urgencyChanged$         = new EventEmitter<TaskUrgency>();
+    @Output() projectToParentChanged$ = new EventEmitter<boolean>();
+    @Output() layoutChanged$          = new EventEmitter<{ task: Task; layout: Layout }>();
+    @Output() dragStarted$            = new EventEmitter<PointerEvent>();
 
     @ViewChild('titleInput')       private titleInputRef?: ElementRef<HTMLInputElement>;
     @ViewChild('descriptionInput') private descriptionInputRef?: ElementRef<HTMLTextAreaElement>;
@@ -221,6 +223,11 @@ export class TaskCardComponent extends ComponentBase implements OnInit, OnChange
     onDrillClick(e: MouseEvent): void {
         e.stopPropagation();
         this.drillIn$.emit(this.task);
+    }
+
+    toggleProjectToParent(e: MouseEvent): void {
+        e.stopPropagation();
+        this.projectToParentChanged$.emit(!(this.task.projectToParent ?? false));
     }
 
     readonly resizeHandles: ResizeHandle[] = ['nw','n','ne','e','se','s','sw','w'];
