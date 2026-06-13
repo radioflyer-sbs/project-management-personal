@@ -24,12 +24,12 @@
                 <span class="task-card__title" [class.task-card__title--complete]="task.isComplete" (dblclick)="startEditTitle($event)">
                     {{ localTitle }}
                 </span>
-                <button class="task-card__edit-hint" title="Edit title" (click)="startEditTitle($event)">
+                <button class="task-card__edit-hint" title="Edit title" (mousedown)="$event.stopPropagation()" (click)="startEditTitle($event)">
                     <i class="pi pi-pencil"></i>
                 </button>
             }
         </div>
-        <button class="task-card__drill-btn" title="Open" (click)="onDrillClick($event)">
+        <button class="task-card__drill-btn" title="Open" (mousedown)="$event.stopPropagation()" (click)="onDrillClick($event)">
             <i class="pi pi-arrow-right"></i>
         </button>
     </div>
@@ -47,13 +47,41 @@
             ></textarea>
         } @else {
             <div class="task-card__body" (dblclick)="startEditDescription($event)">{{ localDescription }}</div>
-            <button class="task-card__body-edit-hint" title="Edit description" (click)="startEditDescription($event)">
+            <button class="task-card__body-edit-hint" title="Edit description" (mousedown)="$event.stopPropagation()" (click)="startEditDescription($event)">
                 <i class="pi pi-pencil"></i>
             </button>
         }
     </div>
 
-    <div class="task-card__status-bar" style="display:flex;align-items:center;gap:4px;padding:4px 8px;background:rgba(0,0,0,0.12);border-top:1px solid rgba(0,0,0,0.2);flex-shrink:0;">
+    <div class="task-card__status-bar">
+
+        <!-- Urgency picker -->
+        <div class="task-card__urgency-wrap" (mousedown)="$event.stopPropagation()">
+            <button
+                class="task-card__urgency-btn"
+                [title]="currentUrgencyOpt.label"
+                (click)="toggleUrgencyDropdown($event)"
+            >
+                <i class="pi {{ currentUrgencyOpt.icon }}" [style.color]="currentUrgencyOpt.color"></i>
+            </button>
+            @if (dropdownOpen) {
+                <div class="task-card__urgency-dropdown">
+                    @for (opt of urgencyLevels; track opt.value) {
+                        <button
+                            class="task-card__urgency-option"
+                            [class.task-card__urgency-option--active]="localUrgency === opt.value"
+                            (click)="selectUrgency(opt.value, $event)"
+                        >
+                            <i class="pi {{ opt.icon }}" [style.color]="opt.color"></i>
+                            <span>{{ opt.label }}</span>
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="task-card__status-divider"></div>
+
         <span class="task-card__stat" [class.task-card__stat--zero]="!counts?.directSubTasks" title="Direct sub-tasks">
             <i class="pi pi-list"></i>{{ counts?.directSubTasks ?? 0 }}
         </span>

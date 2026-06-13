@@ -157,8 +157,10 @@ export class CanvasDataService {
     }
 
     updateTask(task: Task): Observable<Task> {
+        const id = task._id as any;
+        this.tasks$.next(this.tasks$.getValue().map(t => (t._id as any) === id ? task : t));
         return this.taskApi.update(task._id as string, task).pipe(
-            tap(updated => this.tasks$.next(this.tasks$.getValue().map(t => t._id === updated._id ? updated : t)))
+            tap(updated => this.tasks$.next(this.tasks$.getValue().map(t => (t._id as any) === (updated._id as any) ? updated : t)))
         );
     }
 
@@ -174,7 +176,33 @@ export class CanvasDataService {
     }
 
     removeTask(taskId: string): void {
-        this.tasks$.next(this.tasks$.getValue().filter(t => t._id !== taskId));
+        const task = this.tasks$.getValue().find(t => (t._id as any) === taskId);
+        this.tasks$.next(this.tasks$.getValue().filter(t => (t._id as any) !== taskId));
+
+        if (!task?.groupId) { return; }
+
+        const groupId = task.groupId as string;
+        const group   = this.groups$.getValue().find(g => (g._id as any) === groupId);
+        if (!group) { return; }
+
+        const newItemIds     = group.itemIds.filter(id => id !== taskId);
+        const remainingTasks = newItemIds
+            .map(id => this.tasks$.getValue().find(t => (t._id as any) === id))
+            .filter((t): t is Task => !!t);
+
+        const { itemLayouts, groupLayout } = this.computeGroupLayout(
+            { ...group, itemIds: newItemIds }, remainingTasks);
+        const updatedGroup    = { ...group, itemIds: newItemIds, layout: groupLayout };
+        const relayoutedTasks = remainingTasks.map((t, i) => ({ ...t, layout: itemLayouts[i] }));
+
+        this.groups$.next(this.groups$.getValue().map(g => (g._id as any) === groupId ? updatedGroup : g));
+        this.tasks$.next(this.tasks$.getValue().map(t => {
+            const r = relayoutedTasks.find(rt => (rt._id as any) === (t._id as any));
+            return r ?? t;
+        }));
+
+        this.groupApi.update(groupId, { itemIds: newItemIds, layout: groupLayout }).subscribe();
+        relayoutedTasks.forEach(t => this.taskApi.update(t._id as string, { layout: t.layout }).subscribe());
     }
 
     removeNote(noteId: string): void {

@@ -13,7 +13,11 @@ export interface DragMoveEvent {
     itemType: DragItemType;
     fromGroupDrag: boolean;
     layout: Layout;
+    /** True once the pointer has moved ≥ MIN_DRAG_PX screen pixels from the mousedown origin. */
+    hasMoved: boolean;
 }
+
+const MIN_DRAG_PX = 25;
 
 export interface DragResizeEvent {
     id: string;
@@ -81,24 +85,32 @@ export class CanvasInteractionService {
     ): void {
         e.stopPropagation();
         const { zoom } = this.viewport.current;
-        let layout = { ...currentLayout };
-        let lastX = e.clientX;
-        let lastY = e.clientY;
+        let layout   = { ...currentLayout };
+        let lastX    = e.clientX;
+        let lastY    = e.clientY;
+        const startX = e.clientX;
+        const startY = e.clientY;
+        let hasMoved = false;
         const itemType: DragItemType = isTask ? 'task' : 'note';
 
         const onMove = (me: PointerEvent) => {
+            if (!hasMoved) {
+                const dx = me.clientX - startX;
+                const dy = me.clientY - startY;
+                if (Math.sqrt(dx * dx + dy * dy) >= MIN_DRAG_PX) { hasMoved = true; }
+            }
             const dx = (me.clientX - lastX) / zoom;
             const dy = (me.clientY - lastY) / zoom;
             layout = { ...layout, x: layout.x + dx, y: layout.y + dy };
             lastX = me.clientX;
             lastY = me.clientY;
-            this.moveDragging$.next({ id, isTask, itemType, fromGroupDrag: false, layout: { ...layout } });
+            this.moveDragging$.next({ id, isTask, itemType, fromGroupDrag: false, layout: { ...layout }, hasMoved });
         };
 
         const onUp = () => {
             document.removeEventListener('pointermove', onMove);
             document.removeEventListener('pointerup', onUp);
-            this.moveEnded$.next({ id, isTask, itemType, fromGroupDrag: false, layout });
+            this.moveEnded$.next({ id, isTask, itemType, fromGroupDrag: false, layout, hasMoved });
         };
 
         document.addEventListener('pointermove', onMove);
@@ -114,12 +126,20 @@ export class CanvasInteractionService {
     ): void {
         e.stopPropagation();
         const { zoom } = this.viewport.current;
-        let layout = { ...currentLayout };
-        let items = containedItems.map(i => ({ ...i, layout: { ...i.layout } }));
-        let lastX = e.clientX;
-        let lastY = e.clientY;
+        let layout   = { ...currentLayout };
+        let items    = containedItems.map(i => ({ ...i, layout: { ...i.layout } }));
+        let lastX    = e.clientX;
+        let lastY    = e.clientY;
+        const startX = e.clientX;
+        const startY = e.clientY;
+        let hasMoved = false;
 
         const onMove = (me: PointerEvent) => {
+            if (!hasMoved) {
+                const dx = me.clientX - startX;
+                const dy = me.clientY - startY;
+                if (Math.sqrt(dx * dx + dy * dy) >= MIN_DRAG_PX) { hasMoved = true; }
+            }
             const dx = (me.clientX - lastX) / zoom;
             const dy = (me.clientY - lastY) / zoom;
             layout = { ...layout, x: layout.x + dx, y: layout.y + dy };
@@ -129,13 +149,14 @@ export class CanvasInteractionService {
             }));
             lastX = me.clientX;
             lastY = me.clientY;
-            this.moveDragging$.next({ id, isTask: false, itemType: 'group', fromGroupDrag: false, layout: { ...layout } });
+            this.moveDragging$.next({ id, isTask: false, itemType: 'group', fromGroupDrag: false, layout: { ...layout }, hasMoved });
             items.forEach(item =>
                 this.moveDragging$.next({
                     id: item.id, isTask: item.isTask,
                     itemType: item.isTask ? 'task' : 'note',
                     fromGroupDrag: true,
                     layout: { ...item.layout },
+                    hasMoved,
                 })
             );
         };
@@ -143,13 +164,14 @@ export class CanvasInteractionService {
         const onUp = () => {
             document.removeEventListener('pointermove', onMove);
             document.removeEventListener('pointerup', onUp);
-            this.moveEnded$.next({ id, isTask: false, itemType: 'group', fromGroupDrag: false, layout });
+            this.moveEnded$.next({ id, isTask: false, itemType: 'group', fromGroupDrag: false, layout, hasMoved });
             items.forEach(item =>
                 this.moveEnded$.next({
                     id: item.id, isTask: item.isTask,
                     itemType: item.isTask ? 'task' : 'note',
                     fromGroupDrag: true,
                     layout: item.layout,
+                    hasMoved,
                 })
             );
         };

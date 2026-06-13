@@ -205,10 +205,86 @@
         display: flex;
         align-items: center;
         gap: 4px;
-        padding: 4px 8px;
+        padding: 3px 8px;
         border-top: 1px solid rgba(0,0,0,0.15);
         background: rgba(0,0,0,0.1);
     }
+
+    &__status-divider {
+        width: 1px;
+        height: 14px;
+        background: rgba(255,255,255,0.2);
+        flex-shrink: 0;
+    }
+
+    // --- Urgency picker ---
+
+    &__urgency-wrap {
+        position: relative;
+        flex-shrink: 0;
+    }
+
+    &__urgency-btn {
+        appearance: none;
+        -webkit-appearance: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        border: none;
+        border-radius: 4px;
+        background: transparent;
+        cursor: pointer;
+        transition: background 0.12s;
+
+        .pi { font-size: 10px; }
+
+        &:hover { background: rgba(0,0,0,0.15); }
+    }
+
+    &__urgency-dropdown {
+        position: absolute;
+        bottom: calc(100% + 4px);
+        left: 0;
+        z-index: 10;
+        background: var(--color-surface-card, #ffffff);
+        border: 1px solid rgba(0,0,0,0.12);
+        border-radius: 6px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.22);
+        padding: 4px 0;
+        min-width: 154px;
+    }
+
+    &__urgency-option {
+        appearance: none;
+        -webkit-appearance: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 5px 10px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-size: 0.78rem;
+        font-family: inherit;
+        color: var(--color-text-primary, #1a1a2e);
+        text-align: left;
+        transition: background 0.1s;
+
+        .pi { font-size: 11px; flex-shrink: 0; }
+
+        &:hover { background: rgba(0,0,0,0.06); }
+
+        &--active {
+            background: rgba(0,0,0,0.08);
+            font-weight: 600;
+        }
+    }
+
+    // --- End urgency picker ---
 
     &__stat {
         display: inline-flex;

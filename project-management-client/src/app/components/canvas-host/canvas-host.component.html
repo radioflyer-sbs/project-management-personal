@@ -61,6 +61,7 @@
                             (selected$)="onTaskSelected(task)"
                             (drillIn$)="onDrillIntoTask(task)"
                             (taskEdited$)="onTaskEdited(task, $event)"
+                            (urgencyChanged$)="onTaskUrgencyChanged(task, $event)"
                         />
                     }
                     @for (note of notes; track note._id) {

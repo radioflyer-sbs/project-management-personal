@@ -29,6 +29,7 @@ import { Group } from '../../../model/shared-models/group.model';
 import { Project } from '../../../model/shared-models/project.model';
 import { Layout } from '../../../model/shared-models/layout.model';
 import { TaskCounts } from '../../../model/shared-models/task-counts.model';
+import { TaskUrgency } from '../../../model/shared-models/task-urgency.enum';
 
 @Component({
     selector: 'app-canvas-host',
@@ -100,6 +101,7 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
 
         this.interaction.moveEnded$.pipe(takeUntil(this.ngDestroy$)).subscribe(event => {
             if (event.itemType === 'group') {
+                if (!event.hasMoved) { return; }
                 this.groups = this.groups.map(g =>
                     (g._id as any) === event.id ? { ...g, layout: event.layout } : g
                 );
@@ -108,6 +110,7 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
             }
 
             if (event.fromGroupDrag) {
+                if (!event.hasMoved) { return; }
                 if (event.isTask) {
                     this.tasks = this.tasks.map(t =>
                         (t._id as any) === event.id ? { ...t, layout: event.layout } : t
@@ -119,9 +122,10 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
                     );
                     this.canvasData.updateNoteLayout(event.id, event.layout);
                 }
-                
                 return;
             }
+
+            if (!event.hasMoved) { return; }
 
             if (event.isTask) {
                 this.tasks = this.tasks.map(t =>
@@ -453,6 +457,16 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
     onTaskEdited(task: Task, edit: { title: string; description: string }): void {
         const current = this.canvasData.getTaskById(task._id as string) ?? task;
         this.canvasData.updateTask({ ...current, title: edit.title, description: edit.description })
+            .subscribe(result => {
+                if (this.isTaskSelected(result)) {
+                    this.selection.select({ type: 'task', item: result });
+                }
+            });
+    }
+
+    onTaskUrgencyChanged(task: Task, urgency: TaskUrgency): void {
+        const current = this.canvasData.getTaskById(task._id as string) ?? task;
+        this.canvasData.updateTask({ ...current, urgency })
             .subscribe(result => {
                 if (this.isTaskSelected(result)) {
                     this.selection.select({ type: 'task', item: result });
