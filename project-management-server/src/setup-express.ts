@@ -34,8 +34,9 @@ export async function initializeExpressApp(container: Container, io: SocketIOSer
     // Emit data-changed after any successful content-mutating request.
     // Guards:
     //   1. Skip layout/viewState-only PUTs (drag, pan/zoom) — frequent, not content changes.
-    //   2. Skip POSTs to sub-paths (/api/tasks/counts-for-ids) — read-only query actions that
-    //      use POST for a body parameter. True creates always go to the collection root (/api/tasks).
+    //   2. Skip known read-only action POSTs (e.g. counts-for-ids) — query operations that use
+    //      POST only because they need a request body. Listed explicitly in READ_ONLY_POST_PATHS.
+    //   2b. Skip app-state writes — internal UI tracking, not content the canvas needs to reload.
     app.use((req: Request, res: Response, next: NextFunction) => {
         res.on('finish', () => {
             if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) { return; }
@@ -54,14 +55,16 @@ export async function initializeExpressApp(container: Container, io: SocketIOSer
             // Guard 2b — internal app-state writes are UI tracking only, not content changes.
             if (req.originalUrl.startsWith('/api/app-state/')) { return; }
 
-            // Guard 2 — read-only POST to action sub-path (e.g. /api/tasks/counts-for-ids).
-            // Use req.originalUrl (always the full original path) not req.path, which Express
-            // strips to the router-relative path after the subrouter runs (e.g. /counts-for-ids).
-            // True creates go to the collection root (/api/tasks = 2 segments).
+            // Guard 2 — suppress known read-only action POSTs that use a request body for
+            // parameters (they are query operations, not mutations).
+            // Listed explicitly because the old segment-count heuristic incorrectly suppressed
+            // write paths like POST /api/data-definitions/by-project/:id/id/:id/value.
+            const READ_ONLY_POST_PATHS = [
+                '/api/tasks/counts-for-ids',
+            ];
             if (req.method === 'POST') {
                 const fullPath = req.originalUrl.split('?')[0];
-                const segments = fullPath.split('/').filter(Boolean);
-if (segments.length > 2) { return; }
+                if (READ_ONLY_POST_PATHS.includes(fullPath)) { return; }
             }
 
             io.emit('data-changed');

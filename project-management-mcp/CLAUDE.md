@@ -40,12 +40,19 @@ In your MCP config, point to the compiled entry point:
 | Data Definitions | `list_data_definitions`, `get_data_definition`, `create_data_definition`, `update_data_definition`, `set_data_value`, `delete_data_definition` |
 | Dashboards | `list_dashboards`, `get_dashboard`, `get_dashboard_by_id`, `create_dashboard`, `update_dashboard_config`, `add_widget`, `remove_widget`, `update_dashboard_title`, `move_dashboard`, `delete_dashboard` |
 | Canvas | `get_current_view`, `get_canvas_layout`, `set_canvas_layouts` |
+| API Docs | `get_api_info`, `get_api_endpoints` |
 
 ### Move/resize tools
 All `move_*` tools accept optional `width` and `height` in addition to `x` and `y`.
 `move_group` uses the group reflow engine — it repositions member tasks automatically.
 `get_canvas_layout` returns a full spatial snapshot of all card types on one canvas.
 `set_canvas_layouts` batch-updates any mix of card types; groups are reflowed automatically.
+
+### API documentation tools
+`get_api_info` — returns server base URL, port, auth status, Socket.IO event name, Content-Type requirements, and the list of available endpoint categories.
+`get_api_endpoints(category)` — returns the full endpoint reference for one category (method, path, body schema, response, caveats). Categories: `projects`, `tasks`, `notes`, `groups`, `data-definitions`, `dashboards`, `app-state`.
+
+These tools are the source of truth for scripted direct HTTP access. **When REST endpoints are added, removed, or changed, `src/tools/api-docs.ts` must be updated in the same session.**
 
 ## System context resource
 The server exposes `pm://context` — a Markdown document Claude can read to understand the app's data model and how addressing works. Load it at the start of a session to orient Claude.
@@ -64,12 +71,13 @@ The server exposes `pm://context` — a Markdown document Claude can read to und
 Whenever a session introduces new concepts, data model changes, UI behaviour changes, or new workflows to the client or server, update the MCP server in the same session:
 
 1. **`src/tools/*.ts`** — Add, remove, or update tool descriptions and Zod schemas to reflect new fields, new endpoints, changed semantics, or deprecated flags.
-2. **`src/index.ts` (context resource)** — Update the `pm://context` Markdown document so Claude has an accurate mental model. Key sections to keep current:
+2. **`src/tools/api-docs.ts`** — Update the `ENDPOINTS` catalogue whenever a REST endpoint is added, removed, or its schema changes. This is the direct-HTTP reference for scripted access.
+3. **`src/index.ts` (context resource)** — Update the `pm://context` Markdown document so Claude has an accurate mental model. Key sections to keep current:
    - Item type descriptions and their fields
    - Widget type ↔ data definition type compatibility table
    - Editing and UI behaviour (e.g. where editors appear)
    - Workflow examples
-3. **`CLAUDE.md` (this file)** — Update the tool surface table when tools are added or removed.
+4. **`CLAUDE.md` (this file)** — Update the tool surface table when tools are added or removed.
 
 Rebuild after every change:
 ```

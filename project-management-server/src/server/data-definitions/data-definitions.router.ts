@@ -5,6 +5,31 @@ import { DataDefinitionDbService } from '../../database/data-definitions/data-de
 
 const DataValueTypeSchema = z.enum(['number', 'text', 'boolean', 'enum', 'timestamp', 'list']);
 
+/** Coerce a value to the JS type that matches the definition's valueType.
+ *  Guards against LLM/JSON transport coercing numbers to strings, etc. */
+function coerceValue(
+    value: number | string | boolean | string[] | null,
+    valueType: string,
+): number | string | boolean | string[] | null {
+    if (value === null) { return null; }
+    switch (valueType) {
+        case 'number':
+            return typeof value === 'number' ? value : Number(value);
+        case 'boolean':
+            if (typeof value === 'boolean') { return value; }
+            if (value === 'true'  || value === 1) { return true;  }
+            if (value === 'false' || value === 0) { return false; }
+            return Boolean(value);
+        case 'list':
+            return Array.isArray(value) ? value : [String(value)];
+        case 'text':
+        case 'enum':
+        case 'timestamp':
+        default:
+            return typeof value === 'string' ? value : String(value);
+    }
+}
+
 const CreateDataDefinitionSchema = z.object({
     projectId: z.string().min(1),
     id:        z.string().min(1),
@@ -82,6 +107,7 @@ export function createDataDefinitionRouter(dataDefDb: DataDefinitionDbService): 
             }
             const def = await dataDefDb.create({
                 ...rest,
+                value: coerceValue(rest.value, rest.valueType),
                 projectId: projectOid,
             } as any);
             res.status(201).json(def);
@@ -96,7 +122,10 @@ export function createDataDefinitionRouter(dataDefDb: DataDefinitionDbService): 
         try {
             const existing = await dataDefDb.findByMongoId(new ObjectId(String(req.params.mongoId)));
             if (!existing) { res.status(404).json({ message: 'Data definition not found' }); return; }
-            const updated = await dataDefDb.update({ ...existing, ...parse.data, _id: existing._id });
+            const incoming = parse.data.value !== undefined
+                ? { ...parse.data, value: coerceValue(parse.data.value, existing.valueType) }
+                : parse.data;
+            const updated = await dataDefDb.update({ ...existing, ...incoming, _id: existing._id });
             res.json(updated);
         } catch (err) {
             res.status(500).json({ message: 'Failed to update data definition' });
@@ -108,12 +137,12 @@ export function createDataDefinitionRouter(dataDefDb: DataDefinitionDbService): 
         const parse = SetValueSchema.safeParse(req.body);
         if (!parse.success) { res.status(400).json({ message: 'Invalid body', errors: parse.error.issues }); return; }
         try {
-            const updated = await dataDefDb.setValue(
-                new ObjectId(String(req.params.projectId)),
-                String(req.params.id),
-                parse.data.value
-            );
-            if (!updated) { res.status(404).json({ message: 'Data definition not found' }); return; }
+            const projectOid = new ObjectId(String(req.params.projectId));
+            const defId      = String(req.params.id);
+            const existing   = await dataDefDb.findByProjectAndId(projectOid, defId);
+            if (!existing) { res.status(404).json({ message: 'Data definition not found' }); return; }
+            const coerced = coerceValue(parse.data.value, existing.valueType);
+            const updated = await dataDefDb.setValue(projectOid, defId, coerced);
             res.json(updated);
         } catch (err) {
             res.status(500).json({ message: 'Failed to set value' });

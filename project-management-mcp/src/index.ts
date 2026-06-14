@@ -7,6 +7,7 @@ import { registerGroupTools } from './tools/groups.js';
 import { registerDataDefinitionTools } from './tools/data-definitions.js';
 import { registerDashboardTools } from './tools/dashboards.js';
 import { registerCanvasTools } from './tools/canvas.js';
+import { registerApiDocTools } from './tools/api-docs.js';
 
 const server = new McpServer({
     name: 'project-management',
@@ -338,6 +339,7 @@ registerGroupTools(server);
 registerDataDefinitionTools(server);
 registerDashboardTools(server);
 registerCanvasTools(server);
+registerApiDocTools(server);
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 async function main(): Promise<void> {

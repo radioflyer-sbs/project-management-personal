@@ -2,6 +2,8 @@
 
 const BASE_URL = process.env['PM_API_URL'] ?? 'http://localhost:1073/api';
 
+export function getApiBaseUrl(): string { return BASE_URL; }
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const url = `${BASE_URL}${path}`;
     const response = await fetch(url, {
