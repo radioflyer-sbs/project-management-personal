@@ -51,13 +51,4 @@ export function registerProjectTools(server: McpServer): void {
         }
     );
 
-    server.tool(
-        'delete_project',
-        'Delete a project and all its contents (tasks, notes, etc.).',
-        { projectId: z.string().describe('MongoDB _id of the project') },
-        async ({ projectId }) => {
-            await api.delete(`/projects/${projectId}`);
-            return { content: [{ type: 'text', text: `Project ${projectId} deleted.` }] };
-        }
-    );
 }

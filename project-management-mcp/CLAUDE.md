@@ -33,20 +33,21 @@ In your MCP config, point to the compiled entry point:
 ## Tool surface
 | Category | Tools |
 |----------|-------|
-| Projects | `list_projects`, `get_project`, `create_project`, `update_project`, `delete_project` |
-| Tasks | `list_tasks`, `get_task`, `create_task`, `update_task`, `move_task`, `delete_task` |
-| Notes | `list_notes`, `create_note`, `update_note`, `move_note`, `delete_note` |
-| Groups | `list_groups`, `create_group`, `update_group`, `add_task_to_group`, `remove_task_from_group`, `move_group`, `delete_group` |
-| Data Definitions | `list_data_definitions`, `get_data_definition`, `create_data_definition`, `update_data_definition`, `set_data_value`, `delete_data_definition` |
-| Dashboards | `list_dashboards`, `get_dashboard`, `get_dashboard_by_id`, `create_dashboard`, `update_dashboard_config`, `add_widget`, `remove_widget`, `update_dashboard_title`, `move_dashboard`, `delete_dashboard` |
+| Projects | `list_projects`, `get_project`, `create_project`, `update_project` |
+| Tasks | `list_tasks`, `get_task`, `create_task`, `update_task` |
+| Notes | `list_notes`, `create_note`, `update_note` |
+| Groups | `list_groups`, `create_group`, `update_group`, `manage_task_group` |
+| Data Definitions | `list_data_definitions`, `get_data_definition`, `create_data_definition`, `update_data_definition`, `set_data_value` |
+| Dashboards | `list_dashboards`, `get_dashboard`, `create_dashboard`, `update_dashboard`, `manage_widget` |
 | Canvas | `get_current_view`, `get_canvas_layout`, `set_canvas_layouts` |
+| Mutations | `delete_item`, `move_item`, `set_metrics` |
 | API Docs | `get_api_info`, `get_api_endpoints` |
 
-### Move/resize tools
-All `move_*` tools accept optional `width` and `height` in addition to `x` and `y`.
-`move_group` uses the group reflow engine — it repositions member tasks automatically.
-`get_canvas_layout` returns a full spatial snapshot of all card types on one canvas.
-`set_canvas_layouts` batch-updates any mix of card types; groups are reflowed automatically.
+### Consolidated mutation tools
+`delete_item(type, id)` — deletes any item type (`task`, `note`, `group`, `dashboard`, `project`, `data-definition`).
+`move_item(type, id, x, y, width?, height?)` — moves/resizes any card; groups auto-reflow member tasks.
+`set_metrics(projectId, metrics[])` — bulk metric value push; collapses N socket broadcasts into one call.
+`set_canvas_layouts([...])` — batch position/size update for any mix of card types.
 
 ### API documentation tools
 `get_api_info` — returns server base URL, port, auth status, Socket.IO event name, Content-Type requirements, and the list of available endpoint categories.

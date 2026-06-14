@@ -8,6 +8,7 @@ import { registerDataDefinitionTools } from './tools/data-definitions.js';
 import { registerDashboardTools } from './tools/dashboards.js';
 import { registerCanvasTools } from './tools/canvas.js';
 import { registerApiDocTools } from './tools/api-docs.js';
+import { registerMutationTools } from './tools/mutations.js';
 
 const server = new McpServer({
     name: 'project-management',
@@ -82,7 +83,7 @@ on the **same** canvas, just repositioned by the group's reflow engine.
 A group arranges its member tasks in a chosen direction (\`vertical | horizontal\`, optionally \`wrap\`).
 Membership is the ordered list \`itemIds\`; each member task also carries \`groupId\` back-referencing it.
 Each member task stores its pre-join layout in \`preGroupLayout\` so it can be restored when removed.
-Use \`add_task_to_group\` / \`remove_task_from_group\` to manage membership; the reflow engine runs automatically.
+Use \`manage_task_group(taskId, groupId, "add"|"remove")\` to manage membership; the reflow engine runs automatically.
 
 ### Dashboard
 A metric display card that lives on a canvas alongside tasks and notes.
@@ -277,8 +278,8 @@ recalculated — passing a conflicting value for it has no effect.
    - \`text\`/\`timestamp\` def → \`text\` widget
    - \`boolean\` def → \`toggle\` widget
    - \`list\` def → \`list\` widget
-4. Use \`add_widget\` / \`remove_widget\` to adjust individual widgets after creation without replacing the whole config.
-5. \`set_data_value\` at any time to push a live update to a metric (broadcasts instantly over Socket.IO).
+4. Use \`manage_widget(dashboardId, "add", widget)\` / \`manage_widget(dashboardId, "remove", widgetId: "...")\` to adjust individual widgets without replacing the whole config.
+5. \`set_data_value\` (single) or \`set_metrics\` (bulk) at any time to push live metric updates (broadcasts instantly over Socket.IO).
 
 ## Placing new tasks without overlap
 
@@ -299,13 +300,12 @@ Rules:
 All move/resize tools emit real-time Socket.IO events so the browser updates immediately.
 
 **Single item:**
-- \`move_task(taskId, x, y)\` — move only (preserves size)
-- \`move_task(taskId, x, y, width, height)\` — move and resize
-- Same signature for \`move_note\`, \`move_dashboard\`, \`move_group\`
+- \`move_item(type, id, x, y)\` — move only (preserves size)
+- \`move_item(type, id, x, y, width, height)\` — move and resize
+- Types: \`"task"\`, \`"note"\`, \`"dashboard"\`, \`"group"\`
 
 **Group specifics:**
-- \`move_group\` repositions the group container AND runs the reflow engine to reposition all member tasks.
-- You only need to call \`move_group\` — do not also call \`move_task\` for the members.
+- \`move_item\` for groups repositions the container AND runs the reflow engine — do not also move member tasks.
 - For vertical groups, pass \`width\` to change card width; height is ignored (auto-computed).
 - For horizontal no-wrap groups, pass \`height\` to change card height; width is ignored (auto-computed).
 
@@ -313,12 +313,15 @@ All move/resize tools emit real-time Socket.IO events so the browser updates imm
 - \`set_canvas_layouts([...items])\` — update positions/sizes for any mix of card types in one call.
 - Group members are reflowed automatically; do not list them separately.
 
+**Deletes:**
+- \`delete_item(type, id)\` — delete any item; types: \`"task"\`, \`"note"\`, \`"group"\`, \`"dashboard"\`, \`"project"\`, \`"data-definition"\`.
+
 ---
 
 ## Workflow: find a dashboard and inspect its metrics
 
 1. \`list_dashboards({ projectId })\` — get all dashboards; note the \`_id\` and \`key\` of the one you want.
-2. \`get_dashboard_by_id({ dashboardId })\` — fetch full config including all widget definitions.
+2. \`get_dashboard({ identifier: dashboardId })\` — fetch full config including all widget definitions. Pass the 24-char \`_id\` directly, or pass a \`key\` string with \`projectId\`.
 3. \`list_data_definitions({ projectId })\` — see current values and options for all metrics.
 4. \`get_data_definition({ projectId, id })\` — inspect a specific metric's value, type, and options.
 
@@ -340,6 +343,7 @@ registerDataDefinitionTools(server);
 registerDashboardTools(server);
 registerCanvasTools(server);
 registerApiDocTools(server);
+registerMutationTools(server);
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 async function main(): Promise<void> {

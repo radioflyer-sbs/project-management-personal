@@ -86,13 +86,4 @@ export function registerDataDefinitionTools(server: McpServer): void {
         }
     );
 
-    server.tool(
-        'delete_data_definition',
-        'Delete a data definition. Note: dashboards referencing this metric will show missing-data warnings.',
-        { mongoId: z.string().describe('MongoDB _id of the data definition') },
-        async ({ mongoId }) => {
-            await api.delete(`/data-definitions/${mongoId}`);
-            return { content: [{ type: 'text', text: `Data definition ${mongoId} deleted.` }] };
-        }
-    );
 }
