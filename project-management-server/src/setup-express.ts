@@ -21,6 +21,8 @@ import { DataDefinitionDbService } from './database/data-definitions/data-defini
 import { DashboardDbService } from './database/dashboards/dashboard-db.service';
 import { createDataDefinitionRouter } from './server/data-definitions/data-definitions.router';
 import { createDashboardRouter } from './server/dashboards/dashboards.router';
+import { createAppStateRouter } from './server/app-state/app-state.router';
+import { AppStateDbService } from './database/app-state/app-state-db.service';
 
 export async function initializeExpressApp(container: Container, io: SocketIOServer): Promise<Application> {
     const config = await getAppConfig();
@@ -39,12 +41,18 @@ export async function initializeExpressApp(container: Container, io: SocketIOSer
             if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) { return; }
             if (res.statusCode >= 400) { return; }
 
-            // Guard 1 — layout/viewState-only body
-            const body = req.body;
-            if (body && typeof body === 'object' && !Array.isArray(body)) {
-                const keys = Object.keys(body);
-                if (keys.length > 0 && keys.every(k => k === 'layout' || k === 'viewState')) { return; }
+            // Guard 1 — layout/viewState-only body (skip for MCP requests, which always want a refresh)
+            const isMcp = req.headers['x-source'] === 'mcp';
+            if (!isMcp) {
+                const body = req.body;
+                if (body && typeof body === 'object' && !Array.isArray(body)) {
+                    const keys = Object.keys(body);
+                    if (keys.length > 0 && keys.every(k => k === 'layout' || k === 'viewState')) { return; }
+                }
             }
+
+            // Guard 2b — internal app-state writes are UI tracking only, not content changes.
+            if (req.originalUrl.startsWith('/api/app-state/')) { return; }
 
             // Guard 2 — read-only POST to action sub-path (e.g. /api/tasks/counts-for-ids).
             // Use req.originalUrl (always the full original path) not req.path, which Express
@@ -53,8 +61,7 @@ export async function initializeExpressApp(container: Container, io: SocketIOSer
             if (req.method === 'POST') {
                 const fullPath = req.originalUrl.split('?')[0];
                 const segments = fullPath.split('/').filter(Boolean);
-                console.log(`[socket] POST ${fullPath} → segments=${segments.length} → ${segments.length > 2 ? 'SKIP' : 'EMIT'}`);
-                if (segments.length > 2) { return; }
+if (segments.length > 2) { return; }
             }
 
             io.emit('data-changed');
@@ -71,14 +78,16 @@ export async function initializeExpressApp(container: Container, io: SocketIOSer
     const projectionOrder = await container.getAsync<ProjectionOrderService>(TOKENS.ProjectionOrderService);
     const dataDefDb       = await container.getAsync<DataDefinitionDbService>(TOKENS.DataDefinitionDbService);
     const dashboardDb     = await container.getAsync<DashboardDbService>(TOKENS.DashboardDbService);
+    const appStateDb      = await container.getAsync<AppStateDbService>(TOKENS.AppStateDbService);
 
     app.use('/api/projects',         createProjectRouter(projectDb, cascadeDelete));
     app.use('/api/tasks',            createTaskRouter(taskDb, cascadeDelete, noteDb, projectionOrder));
     app.use('/api/notes',            createNoteRouter(noteDb, cascadeDelete));
-    app.use('/api/groups',           createGroupRouter(groupDb, projectionOrder));
+    app.use('/api/groups',           createGroupRouter(groupDb, taskDb, projectionOrder));
     app.use('/api/llm',              createLlmRouter(llmModelDb));
     app.use('/api/data-definitions', createDataDefinitionRouter(dataDefDb));
     app.use('/api/dashboards',       createDashboardRouter(dashboardDb, dataDefDb));
+    app.use('/api/app-state',        createAppStateRouter(appStateDb));
 
     app.use((_req: Request, res: Response) => {
         res.status(404).json({ message: 'Not found.' });

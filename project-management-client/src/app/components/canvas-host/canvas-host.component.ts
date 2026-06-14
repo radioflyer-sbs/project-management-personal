@@ -21,6 +21,7 @@ import { DeletionService } from '../../services/deletion.service';
 import { TaskApiClient } from '../../services/api-clients/task-api.client';
 import { NoteApiClient } from '../../services/api-clients/note-api.client';
 import { DashboardApiClient } from '../../services/api-clients/dashboard-api.client';
+import { AppStateApiClient } from '../../services/api-clients/app-state-api.client';
 import { TaskCardComponent } from '../canvas/task-card/task-card.component';
 import { NoteCardComponent } from '../canvas/note-card/note-card.component';
 import { GroupCardComponent } from '../canvas/group-card/group-card.component';
@@ -67,6 +68,7 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
     private readonly taskApi       = inject(TaskApiClient);
     private readonly noteApi       = inject(NoteApiClient);
     private readonly dashboardApi  = inject(DashboardApiClient);
+    private readonly appStateApi   = inject(AppStateApiClient);
     private readonly zone          = inject(NgZone);
 
     tasks:      Task[]      = [];
@@ -375,6 +377,12 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
                 this.hostTask = task;
                 this.viewport.restore(task?.viewState);
                 this.loading = false;
+                this.appStateApi.set('current-view', {
+                    projectId:    this.projectId,
+                    parentTaskId,
+                    ancestorTaskIds: this.taskIds,
+                    title: task?.title ?? parentTaskId,
+                }).subscribe();
             });
         } else {
             this.projects.getById(this.projectId).pipe(
@@ -383,6 +391,12 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
                 this.hostProject = project;
                 this.viewport.restore(project?.viewState);
                 this.loading = false;
+                this.appStateApi.set('current-view', {
+                    projectId:    this.projectId,
+                    parentTaskId: null,
+                    ancestorTaskIds: [],
+                    title: project?.name ?? this.projectId,
+                }).subscribe();
             });
         }
     }

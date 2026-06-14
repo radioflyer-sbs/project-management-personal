@@ -24,6 +24,7 @@ const CreateTaskSchema = z.object({
     description:     z.string().default(''),
     urgency:         z.nativeEnum(TaskUrgency).default(TaskUrgency.Normal),
     isComplete:      z.boolean().default(false),
+    projectToParent: z.boolean().optional(),
     layout:          LayoutSchema,
 });
 

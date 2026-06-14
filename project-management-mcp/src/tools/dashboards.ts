@@ -200,6 +200,29 @@ export function registerDashboardTools(server: McpServer): void {
     );
 
     server.tool(
+        'move_dashboard',
+        'Move and/or resize a dashboard card. x and y are required; width and height are optional and preserve the current value if omitted.',
+        {
+            dashboardId: z.string(),
+            x:           z.number().describe('New canvas x position in pixels'),
+            y:           z.number().describe('New canvas y position in pixels'),
+            width:       z.number().optional().describe('New card width in pixels (default 420)'),
+            height:      z.number().optional().describe('New card height in pixels (default 360)'),
+        },
+        async ({ dashboardId, x, y, width, height }) => {
+            const dashboard = await api.get(`/dashboards/${dashboardId}`) as any;
+            const layout = {
+                ...dashboard.layout,
+                x, y,
+                ...(width  !== undefined ? { width  } : {}),
+                ...(height !== undefined ? { height } : {}),
+            };
+            const updated = await api.put(`/dashboards/${dashboardId}`, { layout });
+            return { content: [{ type: 'text', text: JSON.stringify(updated, null, 2) }] };
+        }
+    );
+
+    server.tool(
         'delete_dashboard',
         'Delete a dashboard and its canvas placement. Data definitions it referenced are not affected.',
         { dashboardId: z.string() },

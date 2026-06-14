@@ -67,6 +67,29 @@ export function registerNoteTools(server: McpServer): void {
     );
 
     server.tool(
+        'move_note',
+        'Move and/or resize a note card. x and y are required; width and height are optional and preserve the current value if omitted.',
+        {
+            noteId: z.string(),
+            x:      z.number().describe('New canvas x position in pixels'),
+            y:      z.number().describe('New canvas y position in pixels'),
+            width:  z.number().optional().describe('New card width in pixels (default 240)'),
+            height: z.number().optional().describe('New card height in pixels (default 140)'),
+        },
+        async ({ noteId, x, y, width, height }) => {
+            const note = await api.get(`/notes/${noteId}`) as any;
+            const layout = {
+                ...note.layout,
+                x, y,
+                ...(width  !== undefined ? { width  } : {}),
+                ...(height !== undefined ? { height } : {}),
+            };
+            const updated = await api.put(`/notes/${noteId}`, { layout });
+            return { content: [{ type: 'text', text: JSON.stringify(updated, null, 2) }] };
+        }
+    );
+
+    server.tool(
         'delete_note',
         'Delete a note.',
         { noteId: z.string() },

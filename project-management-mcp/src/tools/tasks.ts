@@ -61,7 +61,7 @@ export function registerTaskTools(server: McpServer): void {
                 urgency,
                 isComplete,
                 projectToParent,
-                layout: { x, y, width: 280, height: 180, zIndex: Date.now() },
+                layout: { x, y, width: 240, height: 140, zIndex: Date.now() },
             });
             return { content: [{ type: 'text', text: JSON.stringify(task, null, 2) }] };
         }
@@ -81,6 +81,29 @@ export function registerTaskTools(server: McpServer): void {
         async ({ taskId, ...fields }) => {
             const task = await api.put(`/tasks/${taskId}`, fields);
             return { content: [{ type: 'text', text: JSON.stringify(task, null, 2) }] };
+        }
+    );
+
+    server.tool(
+        'move_task',
+        'Move and/or resize a task card. x and y are required; width and height are optional and preserve the current value if omitted. Use list_tasks to read current layout before repositioning.',
+        {
+            taskId: z.string(),
+            x:      z.number().describe('New canvas x position in pixels'),
+            y:      z.number().describe('New canvas y position in pixels'),
+            width:  z.number().optional().describe('New card width in pixels (default 240)'),
+            height: z.number().optional().describe('New card height in pixels (default 140)'),
+        },
+        async ({ taskId, x, y, width, height }) => {
+            const task = await api.get(`/tasks/${taskId}`) as any;
+            const layout = {
+                ...task.layout,
+                x, y,
+                ...(width  !== undefined ? { width  } : {}),
+                ...(height !== undefined ? { height } : {}),
+            };
+            const updated = await api.put(`/tasks/${taskId}`, { layout });
+            return { content: [{ type: 'text', text: JSON.stringify(updated, null, 2) }] };
         }
     );
 

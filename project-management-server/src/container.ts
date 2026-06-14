@@ -11,6 +11,7 @@ import { GroupDbService } from './database/groups/group-db.service';
 import { ProjectionOrderService } from './database/projection-order.service';
 import { DataDefinitionDbService } from './database/data-definitions/data-definition-db.service';
 import { DashboardDbService } from './database/dashboards/dashboard-db.service';
+import { AppStateDbService } from './database/app-state/app-state-db.service';
 
 export async function buildContainer(): Promise<Container> {
     const config = await getAppConfig();
@@ -33,6 +34,7 @@ export async function buildContainer(): Promise<Container> {
     container.bind<ProjectionOrderService>(TOKENS.ProjectionOrderService).to(ProjectionOrderService).inSingletonScope();
     container.bind<DataDefinitionDbService>(TOKENS.DataDefinitionDbService).to(DataDefinitionDbService).inSingletonScope();
     container.bind<DashboardDbService>(TOKENS.DashboardDbService).to(DashboardDbService).inSingletonScope();
+    container.bind<AppStateDbService>(TOKENS.AppStateDbService).to(AppStateDbService).inSingletonScope();
 
     return container;
 }

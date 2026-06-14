@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 import { GroupDbService } from '../../database/groups/group-db.service';
+import { TaskDbService } from '../../database/tasks/task-db.service';
 import { ProjectionOrderService } from '../../database/projection-order.service';
 
 const LayoutSchema = z.object({
@@ -32,6 +33,7 @@ const UpdateGroupSchema = z.object({
 
 export function createGroupRouter(
     groupDb: GroupDbService,
+    taskDb: TaskDbService,
     projectionOrder: ProjectionOrderService,
 ): Router {
     const router = Router();
@@ -103,7 +105,10 @@ export function createGroupRouter(
         try {
             const id = new ObjectId(String(req.params.id));
             const existing = await groupDb.findById(id);
-            await groupDb.delete(id);
+            await Promise.all([
+                groupDb.delete(id),
+                taskDb.clearGroupMembership(id),
+            ]);
             projectionOrder.scheduleRecompute(existing?.parentTaskId);
             res.status(204).send();
         } catch (err) {

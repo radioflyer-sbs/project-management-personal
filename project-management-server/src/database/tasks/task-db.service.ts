@@ -113,6 +113,15 @@ export class TaskDbService extends DbService {
         ]).toArray() as Promise<Task[]>;
     }
 
+    /** Clears groupId and preGroupLayout for all tasks that belong to the given group. */
+    async clearGroupMembership(groupId: ObjectId): Promise<void> {
+        const col = this.dbHelper.getCollection(DbCollectionNames.Tasks);
+        await col.updateMany(
+            { groupId } as any,
+            { $unset: { groupId: '', preGroupLayout: '' }, $set: { updatedAt: new Date() } } as any,
+        );
+    }
+
     /** Bulk-sets the `projectionOrder` field for many tasks in one round-trip. */
     async setProjectionOrders(updates: { id: ObjectId; projectionOrder: number }[]): Promise<void> {
         if (updates.length === 0) { return; }

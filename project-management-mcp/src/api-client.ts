@@ -6,7 +6,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     const url = `${BASE_URL}${path}`;
     const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Source': 'mcp',          // lets the server bypass layout-only guards and always emit data-changed
+        },
         body: body !== undefined ? JSON.stringify(body) : undefined,
     });
 

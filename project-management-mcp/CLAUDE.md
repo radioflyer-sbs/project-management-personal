@@ -34,11 +34,18 @@ In your MCP config, point to the compiled entry point:
 | Category | Tools |
 |----------|-------|
 | Projects | `list_projects`, `get_project`, `create_project`, `update_project`, `delete_project` |
-| Tasks | `list_tasks`, `get_task`, `create_task`, `update_task`, `delete_task` |
-| Notes | `list_notes`, `create_note`, `update_note`, `delete_note` |
-| Groups | `list_groups`, `create_group`, `update_group`, `delete_group` |
+| Tasks | `list_tasks`, `get_task`, `create_task`, `update_task`, `move_task`, `delete_task` |
+| Notes | `list_notes`, `create_note`, `update_note`, `move_note`, `delete_note` |
+| Groups | `list_groups`, `create_group`, `update_group`, `add_task_to_group`, `remove_task_from_group`, `move_group`, `delete_group` |
 | Data Definitions | `list_data_definitions`, `get_data_definition`, `create_data_definition`, `update_data_definition`, `set_data_value`, `delete_data_definition` |
-| Dashboards | `list_dashboards`, `get_dashboard`, `get_dashboard_by_id`, `create_dashboard`, `update_dashboard_config`, `add_widget`, `remove_widget`, `update_dashboard_title`, `delete_dashboard` |
+| Dashboards | `list_dashboards`, `get_dashboard`, `get_dashboard_by_id`, `create_dashboard`, `update_dashboard_config`, `add_widget`, `remove_widget`, `update_dashboard_title`, `move_dashboard`, `delete_dashboard` |
+| Canvas | `get_current_view`, `get_canvas_layout`, `set_canvas_layouts` |
+
+### Move/resize tools
+All `move_*` tools accept optional `width` and `height` in addition to `x` and `y`.
+`move_group` uses the group reflow engine — it repositions member tasks automatically.
+`get_canvas_layout` returns a full spatial snapshot of all card types on one canvas.
+`set_canvas_layouts` batch-updates any mix of card types; groups are reflowed automatically.
 
 ## System context resource
 The server exposes `pm://context` — a Markdown document Claude can read to understand the app's data model and how addressing works. Load it at the start of a session to orient Claude.

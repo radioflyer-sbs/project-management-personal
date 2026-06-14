@@ -10,4 +10,5 @@ export const TOKENS = {
     ProjectionOrderService:  Symbol('ProjectionOrderService'),
     DataDefinitionDbService: Symbol('DataDefinitionDbService'),
     DashboardDbService:      Symbol('DashboardDbService'),
+    AppStateDbService:       Symbol('AppStateDbService'),
 };
