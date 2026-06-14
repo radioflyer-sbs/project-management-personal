@@ -17,6 +17,7 @@ import { DetailsPaneService } from '../../services/details-pane.service';
 import { DeletionService } from '../../services/deletion.service';
 import { CanvasDataService } from '../../services/canvas-data.service';
 import { ProjectsService } from '../../services/projects.service';
+import { SocketService } from '../../services/socket.service';
 import { DataDefinitionApiClient } from '../../services/api-clients/data-definition-api.client';
 import { Task } from '../../../model/shared-models/task.model';
 import { Note } from '../../../model/shared-models/note.model';
@@ -49,6 +50,7 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
     private readonly deletionService  = inject(DeletionService);
     private readonly canvasData       = inject(CanvasDataService);
     private readonly projectsService  = inject(ProjectsService);
+    private readonly socketService    = inject(SocketService);
     private readonly dataDefApi       = inject(DataDefinitionApiClient);
 
     selection: SelectedItem = null;
@@ -98,6 +100,20 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
         ).subscribe(() => {
             if (this.pendingSave) { this.flushSave(); }
         });
+
+        // When an external source (e.g. MCP) changes metric values, re-fetch defs and refresh the display.
+        this.socketService.dataChanged$
+            .pipe(debounceTime(500), takeUntil(this.ngDestroy$))
+            .subscribe(() => {
+                const ed = this.effectiveDashboard;
+                if (!ed) { return; }
+                this.dataDefApi.getByProject(ed.item.projectId as string)
+                    .pipe(takeUntil(this.ngDestroy$))
+                    .subscribe(defs => {
+                        this.selectionService.updateDashboardDefs(defs);
+                        this.populateDashboardValues(defs);
+                    });
+            });
     }
 
     override ngOnDestroy(): void {

@@ -1,6 +1,7 @@
-import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject, Observable, forkJoin, of } from 'rxjs';
-import { tap, map, catchError } from 'rxjs/operators';
+import { Injectable, OnDestroy, inject } from '@angular/core';
+import { BehaviorSubject, Observable, Subject, forkJoin, of } from 'rxjs';
+import { tap, map, catchError, debounceTime, takeUntil } from 'rxjs/operators';
+import { SocketService } from './socket.service';
 import { TaskApiClient, CreateTaskDto } from './api-clients/task-api.client';
 import { NoteApiClient, CreateNoteDto } from './api-clients/note-api.client';
 import { ProjectApiClient } from './api-clients/project-api.client';
@@ -24,9 +25,20 @@ import {
 
 /** Manages the data (tasks, notes, groups) for one active canvas. Provided per CanvasHostComponent. */
 @Injectable()
-export class CanvasDataService {
+export class CanvasDataService implements OnDestroy {
 
-    constructor() { }
+    private readonly destroy$ = new Subject<void>();
+
+    constructor() {
+        inject(SocketService).dataChanged$
+            .pipe(debounceTime(500), takeUntil(this.destroy$))
+            .subscribe(() => { if (this.projectId) { this.load(); } });
+    }
+
+    ngOnDestroy(): void {
+        this.destroy$.next();
+        this.destroy$.complete();
+    }
 
     private readonly taskApi      = inject(TaskApiClient);
     private readonly noteApi      = inject(NoteApiClient);

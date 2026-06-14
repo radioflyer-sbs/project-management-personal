@@ -4,13 +4,14 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { takeUntil } from 'rxjs/operators';
+import { takeUntil, debounceTime } from 'rxjs/operators';
 import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
 import { ComponentBase } from '../../component-base/component-base.component';
 import { CanvasInteractionService } from '../../../services/canvas-interaction.service';
 import { SelectionService } from '../../../services/selection.service';
 import { DeletionService } from '../../../services/deletion.service';
+import { SocketService } from '../../../services/socket.service';
 import { DataDefinitionApiClient } from '../../../services/api-clients/data-definition-api.client';
 import { Dashboard, DashboardWidget } from '../../../../model/shared-models/dashboard.model';
 import { DataDefinition, DataValue } from '../../../../model/shared-models/data-definition.model';
@@ -49,13 +50,14 @@ export class DashboardCardComponent extends ComponentBase implements OnInit, OnC
     @Output() dashboardUpdated$ = new EventEmitter<Dashboard>();
     @Output() dashboardDeleted$ = new EventEmitter<string>();
 
-    private readonly interaction = inject(CanvasInteractionService);
-    private readonly zone        = inject(NgZone);
-    private readonly el          = inject(ElementRef<HTMLElement>);
-    private readonly dataDefApi  = inject(DataDefinitionApiClient);
-    private readonly router      = inject(Router);
-    private readonly selection   = inject(SelectionService);
-    private readonly deletion    = inject(DeletionService);
+    private readonly interaction  = inject(CanvasInteractionService);
+    private readonly zone         = inject(NgZone);
+    private readonly el           = inject(ElementRef<HTMLElement>);
+    private readonly dataDefApi   = inject(DataDefinitionApiClient);
+    private readonly router       = inject(Router);
+    private readonly selection    = inject(SelectionService);
+    private readonly deletion     = inject(DeletionService);
+    private readonly socketService = inject(SocketService);
 
     localLayout!: Layout;
     private isDragging = false;
@@ -76,6 +78,11 @@ export class DashboardCardComponent extends ComponentBase implements OnInit, OnC
                 this.isSelected = false;
             }
         });
+
+        // Refresh defs when external changes arrive (e.g. MCP updates a metric value).
+        this.socketService.dataChanged$
+            .pipe(debounceTime(500), takeUntil(this.ngDestroy$))
+            .subscribe(() => this.loadDataDefs());
 
         this.zone.runOutsideAngular(() => {
             this.interaction.moveDragging$.pipe(takeUntil(this.ngDestroy$)).subscribe(e => {
