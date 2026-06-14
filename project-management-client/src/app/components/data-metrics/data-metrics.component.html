@@ -1,0 +1,162 @@
+<div class="dm-page">
+
+    <!-- ── Header ──────────────────────────────────────────────────────────── -->
+    <div class="dm-page__header">
+        <button class="dm-page__back-btn" (click)="navigateBack()">
+            <i class="pi pi-arrow-left"></i>
+            Back to Canvas
+        </button>
+        <span class="dm-page__heading">
+            <i class="pi pi-chart-line"></i>
+            Data Metrics
+            <span class="dm-page__project-id">Project: {{ projectId }}</span>
+        </span>
+        <div class="dm-page__header-actions">
+            <button pButton label="New Metric" icon="pi pi-plus"
+                class="p-button-outlined p-button-sm"
+                (click)="showAddForm = !showAddForm">
+            </button>
+        </div>
+    </div>
+
+    <!-- ── Loading ─────────────────────────────────────────────────────────── -->
+    @if (loading) {
+        <div class="dm-page__loading">
+            <i class="pi pi-spin pi-spinner"></i>
+            <span>Loading metrics…</span>
+        </div>
+    }
+
+    <!-- ── Body ────────────────────────────────────────────────────────────── -->
+    @if (!loading) {
+        <div class="dm-page__body">
+
+            <!-- Add form -->
+            @if (showAddForm) {
+                <div class="dm-add-form">
+                    <h4 class="dm-add-form__title">New Metric</h4>
+                    <div class="dm-add-form__fields">
+                        <div class="dm-field">
+                            <label class="dm-label">ID <span class="dm-required">*</span></label>
+                            <input pInputText [(ngModel)]="newId" class="dm-input w-full"
+                                placeholder="e.g. build-status" />
+                        </div>
+                        <div class="dm-field">
+                            <label class="dm-label">Label</label>
+                            <input pInputText [(ngModel)]="newLabel" class="dm-input w-full"
+                                placeholder="Human-readable name" />
+                        </div>
+                        <div class="dm-field">
+                            <label class="dm-label">Type</label>
+                            <p-dropdown [options]="valueTypeOptions" [(ngModel)]="newValueType"
+                                optionLabel="label" optionValue="value"
+                                appendTo="body" styleClass="w-full" />
+                        </div>
+                        <div class="dm-field">
+                            <label class="dm-label">Initial Value</label>
+                            <input pInputText [(ngModel)]="newInitialValue" class="dm-input w-full"
+                                placeholder="0" />
+                        </div>
+                    </div>
+                    <div class="dm-add-form__actions">
+                        <button pButton label="Create" icon="pi pi-save" class="p-button-sm"
+                            [disabled]="!newId" (click)="createDef()">
+                        </button>
+                        <button pButton label="Cancel" icon="pi pi-times"
+                            class="p-button-sm p-button-text"
+                            (click)="showAddForm = false">
+                        </button>
+                    </div>
+                </div>
+            }
+
+            <!-- Metric cards -->
+            <div class="dm-list">
+                @for (def of draftDefs; track def._id; let i = $index) {
+                    <div class="dm-card">
+                        <div class="dm-card__header">
+                            <span class="dm-card__id">{{ def.id }}</span>
+                            <span class="dm-card__type-badge">{{ def.valueType }}</span>
+                            @if (def._saved) {
+                                <span class="dm-card__saved"><i class="pi pi-check-circle"></i> Saved</span>
+                            }
+                            @if (def._saving) {
+                                <span class="dm-card__saving"><i class="pi pi-spin pi-spinner"></i></span>
+                            }
+                            <button class="dm-card__del-btn pi pi-trash"
+                                title="Delete metric"
+                                (click)="deleteDef(def._id)">
+                            </button>
+                        </div>
+
+                        <div class="dm-card__fields">
+                            <div class="dm-field dm-field--inline">
+                                <label class="dm-label">Label</label>
+                                <input pInputText [(ngModel)]="def.label"
+                                    (ngModelChange)="def._dirty = true"
+                                    class="dm-input" placeholder="Display name" />
+                            </div>
+                            <div class="dm-field dm-field--inline">
+                                <label class="dm-label">Value</label>
+                                <input pInputText [(ngModel)]="def.valueStr"
+                                    (ngModelChange)="def._dirty = true"
+                                    class="dm-input" />
+                            </div>
+                            @if (def.valueType === 'number') {
+                                <div class="dm-field dm-field--inline">
+                                    <label class="dm-label">Unit</label>
+                                    <input pInputText [(ngModel)]="def.unit"
+                                        (ngModelChange)="def._dirty = true"
+                                        class="dm-input dm-input--narrow"
+                                        placeholder="kg, %, px…" />
+                                </div>
+                                <div class="dm-field dm-field--inline">
+                                    <label class="dm-label">Min</label>
+                                    <input pInputText [(ngModel)]="def.minStr"
+                                        (ngModelChange)="def._dirty = true"
+                                        class="dm-input dm-input--narrow" />
+                                </div>
+                                <div class="dm-field dm-field--inline">
+                                    <label class="dm-label">Max</label>
+                                    <input pInputText [(ngModel)]="def.maxStr"
+                                        (ngModelChange)="def._dirty = true"
+                                        class="dm-input dm-input--narrow" />
+                                </div>
+                            }
+                            @if (def.valueType === 'enum') {
+                                <div class="dm-field dm-field--inline">
+                                    <label class="dm-label">
+                                        Options
+                                        <span class="dm-hint">(comma-separated)</span>
+                                    </label>
+                                    <input pInputText [(ngModel)]="def.enumOptionsStr"
+                                        (ngModelChange)="def._dirty = true"
+                                        class="dm-input" placeholder="open, in-progress, done" />
+                                </div>
+                            }
+                        </div>
+
+                        @if (def._dirty) {
+                            <div class="dm-card__footer">
+                                <button pButton label="Save" icon="pi pi-check"
+                                    class="p-button-sm p-button-success"
+                                    (click)="saveDef(def)">
+                                </button>
+                                <span class="dm-card__unsaved-hint">Unsaved changes</span>
+                            </div>
+                        }
+                    </div>
+                }
+
+                @if (draftDefs.length === 0 && !showAddForm) {
+                    <div class="dm-empty">
+                        <i class="pi pi-chart-line"></i>
+                        <span>No metrics yet. Click "New Metric" to create one.</span>
+                    </div>
+                }
+            </div>
+
+        </div>
+    }
+
+</div>

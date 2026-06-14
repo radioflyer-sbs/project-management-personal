@@ -1,0 +1,255 @@
+<div class="db-editor">
+
+    <!-- ── Page header ──────────────────────────────────────────────────── -->
+    <div class="db-editor__header">
+        <button class="db-editor__back-btn" (click)="navigateBack()">
+            <i class="pi pi-arrow-left"></i>
+            Back to Canvas
+        </button>
+        <span class="db-editor__heading">
+            <i class="pi pi-chart-bar"></i>
+            Dashboard Editor
+            <span *ngIf="dashboard" class="db-editor__heading-name">— {{ draftTitle || dashboard.title }}</span>
+        </span>
+        <div class="db-editor__header-actions">
+            <span *ngIf="saving" class="db-editor__status db-editor__status--saving">
+                <i class="pi pi-spin pi-spinner"></i> Saving…
+            </span>
+            <span *ngIf="saved && !saving" class="db-editor__status db-editor__status--saved">
+                <i class="pi pi-check-circle"></i> Saved
+            </span>
+            <button pButton label="Save Changes" icon="pi pi-save"
+                [disabled]="!isDirty || saving"
+                (click)="saveDashboard()">
+            </button>
+        </div>
+    </div>
+
+    <!-- ── Loading ──────────────────────────────────────────────────────── -->
+    <div *ngIf="loading" class="db-editor__loading">
+        <i class="pi pi-spin pi-spinner"></i>
+        <span>Loading dashboard…</span>
+    </div>
+
+    <!-- ── Body ─────────────────────────────────────────────────────────── -->
+    <div *ngIf="!loading && dashboard" class="db-editor__body">
+
+        <!-- Left sidebar -->
+        <aside class="db-editor__sidebar">
+
+            <!-- Dashboard info -->
+            <section class="db-editor__section">
+                <h3 class="db-editor__section-title">Dashboard Info</h3>
+                <div class="db-editor__field">
+                    <label class="db-editor__label">Title</label>
+                    <input pInputText [(ngModel)]="draftTitle" (ngModelChange)="markDirty()"
+                        class="db-editor__input w-full" />
+                </div>
+                <div class="db-editor__field">
+                    <label class="db-editor__label">
+                        Key
+                        <span class="db-editor__hint">(stable API address)</span>
+                    </label>
+                    <code class="db-editor__key-badge">{{ dashboard.key }}</code>
+                </div>
+                <div class="db-editor__field">
+                    <label class="db-editor__label">Project ID</label>
+                    <code class="db-editor__key-badge">{{ projectId }}</code>
+                </div>
+            </section>
+
+            <!-- Metrics summary -->
+            <section class="db-editor__section db-editor__section--metrics">
+                <div class="db-editor__section-header">
+                    <h3 class="db-editor__section-title">Data Metrics</h3>
+                    <button pButton icon="pi pi-chart-line" label="Manage"
+                        class="p-button-outlined p-button-sm"
+                        (click)="navigateToMetrics()">
+                    </button>
+                </div>
+
+                <div class="db-editor__metric-list">
+                    @for (item of dashboardMetrics; track item.widget.id) {
+                        <div class="db-editor__metric-row">
+                            <div class="db-editor__metric-name">
+                                @if (item.widget.icon) { <i class="pi {{ item.widget.icon }}"></i> }
+                                <span>{{ item.widget.label || item.widget.id }}</span>
+                            </div>
+                            @if (item.def) {
+                                <span class="db-editor__metric-type">{{ item.def.valueType }}</span>
+                                <span class="db-editor__metric-value">{{ getMetricDisplayValue(item.def) }}</span>
+                            } @else {
+                                <span class="db-editor__metric-missing">not found</span>
+                            }
+                        </div>
+                    }
+                    @if (draftWidgets.length === 0) {
+                        <span class="db-editor__metric-empty">No widgets added yet.</span>
+                    }
+                </div>
+            </section>
+
+        </aside>
+
+        <!-- Widgets main area -->
+        <main class="db-editor__main">
+
+            <div class="db-editor__main-header">
+                <h3 class="db-editor__section-title">Widgets</h3>
+                <span class="db-editor__widget-count">
+                    {{ draftWidgets.length }} widget{{ draftWidgets.length !== 1 ? 's' : '' }}
+                </span>
+            </div>
+
+            <!-- Widget cards -->
+            <div class="db-editor__widget-list">
+                <div *ngFor="let w of draftWidgets; let i = index; trackBy: trackByWidgetId"
+                    class="db-editor__widget-card">
+
+                    <div class="db-editor__widget-card-header">
+                        <div class="db-editor__order-btns">
+                            <button class="db-editor__order-btn" [disabled]="i === 0"
+                                title="Move up" (click)="moveWidget(i, -1)">
+                                <i class="pi pi-chevron-up"></i>
+                            </button>
+                            <button class="db-editor__order-btn"
+                                [disabled]="i === draftWidgets.length - 1"
+                                title="Move down" (click)="moveWidget(i, 1)">
+                                <i class="pi pi-chevron-down"></i>
+                            </button>
+                        </div>
+                        <span class="db-editor__widget-id">
+                            <i class="pi {{ getWidgetTypeIcon(w.type) }}"></i>
+                            {{ w.id }}
+                        </span>
+                        <button class="db-editor__del-btn pi pi-trash"
+                            title="Remove widget"
+                            (click)="removeWidget(i)">
+                        </button>
+                    </div>
+
+                    <div class="db-editor__widget-fields">
+                        <div class="db-editor__field">
+                            <label class="db-editor__label">Type</label>
+                            <p-dropdown [options]="widgetTypeOptions" [(ngModel)]="w.type"
+                                optionLabel="label" optionValue="value"
+                                (ngModelChange)="markDirty()"
+                                appendTo="body" styleClass="w-full"></p-dropdown>
+                        </div>
+                        <div class="db-editor__field">
+                            <label class="db-editor__label">
+                                Data Metric <span class="db-editor__required">*</span>
+                            </label>
+                            <p-dropdown [options]="dataDefOptions" [(ngModel)]="w.dataId"
+                                placeholder="Select metric…"
+                                optionLabel="label" optionValue="value"
+                                (ngModelChange)="markDirty()"
+                                appendTo="body" styleClass="w-full"></p-dropdown>
+                        </div>
+                        <div class="db-editor__field">
+                            <label class="db-editor__label">Label</label>
+                            <input pInputText [(ngModel)]="w.label"
+                                (ngModelChange)="markDirty()"
+                                class="db-editor__input w-full"
+                                placeholder="Display label (optional)" />
+                        </div>
+                        <div class="db-editor__field">
+                            <label class="db-editor__label">
+                                Icon
+                                <span class="db-editor__hint">(PrimeIcons name)</span>
+                            </label>
+                            <div class="db-editor__icon-row">
+                                <i *ngIf="w.icon" class="pi {{ w.icon }} db-editor__icon-preview"></i>
+                                <input pInputText [(ngModel)]="w.icon"
+                                    (ngModelChange)="markDirty()"
+                                    class="db-editor__input"
+                                    placeholder="e.g. pi-check-circle" style="flex:1" />
+                            </div>
+                        </div>
+                        <ng-container *ngIf="w.type === 'number'">
+                            <div class="db-editor__field">
+                                <label class="db-editor__label">
+                                    Prefix
+                                    <span class="db-editor__hint">(e.g. $)</span>
+                                </label>
+                                <input pInputText [(ngModel)]="w.prefix"
+                                    (ngModelChange)="markDirty()"
+                                    class="db-editor__input db-editor__input--narrow"
+                                    placeholder="$" />
+                            </div>
+                            <div class="db-editor__field">
+                                <label class="db-editor__label">
+                                    Suffix
+                                    <span class="db-editor__hint">(e.g. %)</span>
+                                </label>
+                                <input pInputText [(ngModel)]="w.suffix"
+                                    (ngModelChange)="markDirty()"
+                                    class="db-editor__input db-editor__input--narrow"
+                                    placeholder="%" />
+                            </div>
+                        </ng-container>
+                    </div>
+
+                </div>
+
+                <div *ngIf="draftWidgets.length === 0" class="db-editor__widget-empty">
+                    <i class="pi pi-th-large"></i>
+                    <span>No widgets yet — add one below.</span>
+                </div>
+            </div>
+
+            <!-- ── Add-widget form ──────────────────────────────────────── -->
+            <div class="db-editor__add-widget">
+                <h4 class="db-editor__add-widget-title">
+                    <i class="pi pi-plus-circle"></i> Add Widget
+                </h4>
+                <div class="db-editor__widget-fields">
+                    <div class="db-editor__field">
+                        <label class="db-editor__label">
+                            Widget ID <span class="db-editor__required">*</span>
+                        </label>
+                        <input pInputText [(ngModel)]="newWidgetId"
+                            class="db-editor__input w-full"
+                            placeholder="e.g. build-progress" />
+                    </div>
+                    <div class="db-editor__field">
+                        <label class="db-editor__label">
+                            Data Metric <span class="db-editor__required">*</span>
+                        </label>
+                        <p-dropdown [options]="dataDefOptions" [(ngModel)]="newWidgetDataId"
+                            placeholder="Select metric…"
+                            optionLabel="label" optionValue="value"
+                            (onChange)="onNewWidgetDataIdChange($event.value)"
+                            appendTo="body" styleClass="w-full"></p-dropdown>
+                    </div>
+                    <div class="db-editor__field">
+                        <label class="db-editor__label">
+                            Type
+                            <span class="db-editor__hint">(auto-set from metric)</span>
+                        </label>
+                        <p-dropdown [options]="widgetTypeOptions" [(ngModel)]="newWidgetType"
+                            optionLabel="label" optionValue="value"
+                            appendTo="body" styleClass="w-full"></p-dropdown>
+                    </div>
+                    <div class="db-editor__field">
+                        <label class="db-editor__label">Label</label>
+                        <input pInputText [(ngModel)]="newWidgetLabel"
+                            class="db-editor__input w-full"
+                            placeholder="Optional display label" />
+                    </div>
+                    <div class="db-editor__field">
+                        <label class="db-editor__label">Icon</label>
+                        <input pInputText [(ngModel)]="newWidgetIcon"
+                            class="db-editor__input w-full"
+                            placeholder="e.g. pi-chart-bar" />
+                    </div>
+                </div>
+                <button pButton label="Add Widget" icon="pi pi-plus"
+                    [disabled]="!newWidgetId || !newWidgetDataId"
+                    (click)="addWidget()">
+                </button>
+            </div>
+
+        </main>
+    </div>
+</div>

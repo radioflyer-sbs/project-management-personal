@@ -1,17 +1,20 @@
-<div class="dashboard-card" [class.dashboard-card--selected]="selected"
-    [style.left.px]="localLayout?.x"
-    [style.top.px]="localLayout?.y"
-    [style.width.px]="localLayout?.width"
-    [style.height.px]="localLayout?.height"
-    [style.z-index]="localLayout?.zIndex">
+<div class="dashboard-card" [class.dashboard-card--selected]="isSelected"
+    [style.left.px]="localLayout.x"
+    [style.top.px]="localLayout.y"
+    [style.width.px]="localLayout.width"
+    [style.height.px]="localLayout.height"
+    [style.z-index]="localLayout.zIndex"
+    (mousedown)="onBodyMousedown($event)">
 
     <!-- Header — drag handle -->
-    <div class="dashboard-card__header" (mousedown)="onMousedown($event)">
+    <div class="dashboard-card__header" (mousedown)="onHeaderMousedown($event)">
         <span class="dashboard-card__title">{{ dashboard.title }}</span>
         <span class="dashboard-card__key">{{ dashboard.key }}</span>
         <div class="dashboard-card__actions">
-            <button class="dashboard-card__action-btn pi pi-cog" pTooltip="Configure" tooltipPosition="top"
-                (click)="openSetup(); $event.stopPropagation()"></button>
+            <button class="dashboard-card__action-btn pi pi-cog" pTooltip="Edit dashboard" tooltipPosition="top"
+                (click)="openEditor(); $event.stopPropagation()"></button>
+            <button class="dashboard-card__action-btn pi pi-chart-line" pTooltip="Manage metrics" tooltipPosition="top"
+                (click)="openMetrics(); $event.stopPropagation()"></button>
             <button class="dashboard-card__action-btn pi pi-trash dashboard-card__action-btn--danger"
                 pTooltip="Delete dashboard" tooltipPosition="top"
                 (click)="deleteDashboard(); $event.stopPropagation()"></button>
@@ -78,101 +81,3 @@
     <div class="resize-handle resize-handle--e"  (pointerdown)="onResizeMousedown('e',  $event)"></div>
     <div class="resize-handle resize-handle--s"  (pointerdown)="onResizeMousedown('s',  $event)"></div>
 </div>
-
-<!-- Setup Dialog -->
-<p-dialog header="Configure Dashboard" [(visible)]="showSetupDialog"
-    [modal]="true" [style]="{ width: '560px' }" appendTo="body"
-    (onHide)="closeSetup()">
-
-    <div class="setup-dialog" (click)="$event.stopPropagation()">
-
-        <!-- Existing widgets -->
-        <div class="setup-dialog__section">
-            <h4 class="setup-dialog__heading">Widgets</h4>
-            <div class="setup-dialog__widget-list">
-                <div *ngFor="let w of dashboard.config.widgets" class="setup-dialog__widget-row">
-                    <i class="pi {{ w.icon || 'pi-minus' }}"></i>
-                    <span class="setup-dialog__widget-id">{{ w.id }}</span>
-                    <span class="setup-dialog__widget-type">{{ w.type }}</span>
-                    <span class="setup-dialog__widget-data">→ {{ w.dataId }}</span>
-                    <button class="setup-dialog__remove-btn pi pi-times"
-                        (click)="removeWidget(w.id)"></button>
-                </div>
-                <p *ngIf="dashboard.config.widgets.length === 0" class="setup-dialog__empty-note">
-                    No widgets yet.
-                </p>
-            </div>
-        </div>
-
-        <!-- Add widget form -->
-        <div class="setup-dialog__section">
-            <h4 class="setup-dialog__heading">Add Widget</h4>
-            <div class="setup-dialog__form">
-                <label>Widget ID <span class="setup-dialog__required">*</span></label>
-                <input pInputText [(ngModel)]="newWidgetId" placeholder="e.g. build-status-display" />
-
-                <label>Type <span class="setup-dialog__required">*</span></label>
-                <p-dropdown [options]="widgetTypeOptions" [(ngModel)]="newWidgetType"
-                    optionLabel="label" optionValue="value" appendTo="body"></p-dropdown>
-
-                <label>Data Definition <span class="setup-dialog__required">*</span></label>
-                <div class="setup-dialog__data-row">
-                    <p-dropdown [options]="dataDefOptions" [(ngModel)]="newWidgetDataId"
-                        placeholder="Select metric…" optionLabel="label" optionValue="value"
-                        appendTo="body" class="setup-dialog__data-drop"></p-dropdown>
-                    <button pButton icon="pi pi-plus" label="New…" class="p-button-outlined p-button-sm"
-                        (click)="showNewDefForm = !showNewDefForm"></button>
-                </div>
-
-                <!-- Inline new data definition form -->
-                <div *ngIf="showNewDefForm" class="setup-dialog__newdef">
-                    <h5>New Data Definition</h5>
-                    <label>ID <span class="setup-dialog__required">*</span></label>
-                    <input pInputText [(ngModel)]="newDefId" placeholder="e.g. build-status" />
-                    <label>Label</label>
-                    <input pInputText [(ngModel)]="newDefLabel" placeholder="Human-readable label" />
-                    <label>Value Type</label>
-                    <p-dropdown [options]="valueTypeOptions" [(ngModel)]="newDefValueType"
-                        optionLabel="label" optionValue="value" appendTo="body"></p-dropdown>
-                    <label>Initial Value</label>
-                    <input pInputText [(ngModel)]="newDefValue" placeholder="0" />
-                    <button pButton label="Create Definition" icon="pi pi-save"
-                        class="p-button-sm" (click)="createDataDef()"></button>
-                </div>
-
-                <label>Label</label>
-                <input pInputText [(ngModel)]="newWidgetLabel" placeholder="Optional label" />
-
-                <label>Icon (PrimeIcons)</label>
-                <input pInputText [(ngModel)]="newWidgetIcon" placeholder="e.g. pi-check-circle" />
-
-                <label class="setup-dialog__checkbox-row">
-                    <p-checkbox [(ngModel)]="newWidgetEditable" [binary]="true"></p-checkbox>
-                    Editable (user can change the value)
-                </label>
-
-                <button pButton label="Add Widget" icon="pi pi-plus"
-                    [disabled]="!newWidgetId || !newWidgetDataId"
-                    (click)="addWidget()"></button>
-            </div>
-        </div>
-
-        <!-- Addresses for API / MCP use -->
-        <div class="setup-dialog__section setup-dialog__section--addresses">
-            <h4 class="setup-dialog__heading">Addressing (for API / MCP)</h4>
-            <div class="setup-dialog__address-row">
-                <span class="setup-dialog__addr-label">Project ID</span>
-                <code class="setup-dialog__addr-val">{{ projectId }}</code>
-            </div>
-            <div class="setup-dialog__address-row">
-                <span class="setup-dialog__addr-label">Dashboard key</span>
-                <code class="setup-dialog__addr-val">{{ dashboard.key }}</code>
-            </div>
-            <div *ngFor="let w of dashboard.config.widgets" class="setup-dialog__address-row">
-                <span class="setup-dialog__addr-label">Widget "{{ w.id }}" → metric</span>
-                <code class="setup-dialog__addr-val">{{ w.dataId }}</code>
-            </div>
-        </div>
-
-    </div>
-</p-dialog>

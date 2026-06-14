@@ -28,6 +28,8 @@ export class AppShellComponent extends ComponentBase implements OnInit {
 
     breadcrumbs: MenuItem[] = [];
 
+    get currentProjectId(): string | null { return this.navigation.currentProjectId; }
+
     ngOnInit(): void {
         this.router.events.pipe(
             filter(e => e instanceof NavigationEnd),

@@ -99,24 +99,23 @@
 // ── Resize handles ────────────────────────────────────────────────────────────
 .resize-handle {
     position: absolute;
-    background: transparent;
+    width: 8px;
+    height: 8px;
+    background: #3b82f6;
+    border-radius: 2px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
     z-index: 10;
 
-    &--se {
-        bottom: 0; right: 0;
-        width: 12px; height: 12px;
-        cursor: se-resize;
+    .dashboard-card--selected & {
+        opacity: 1;
+        pointer-events: auto;
     }
-    &--e {
-        top: 10%; right: 0;
-        width: 6px; height: 80%;
-        cursor: e-resize;
-    }
-    &--s {
-        bottom: 0; left: 10%;
-        width: 80%; height: 6px;
-        cursor: s-resize;
-    }
+
+    &--se { bottom: -4px; right: -4px; cursor: se-resize; }
+    &--e  { right: -4px; top: 50%; transform: translateY(-50%); cursor: e-resize; }
+    &--s  { bottom: -4px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
 }
 
 // ── Widget base styles (shared across all widget components) ─────────────────
@@ -229,6 +228,18 @@
         font-weight: 500;
     }
 
+    // Toggle badge
+    &__toggle-badge {
+        display: inline-block;
+        padding: 3px 12px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+
+        &--on  { background: #dcfce7; color: #15803d; }
+        &--off { background: #f1f5f9; color: #64748b; }
+    }
+
     // List
     &__list {
         list-style: none;
@@ -281,125 +292,3 @@
     }
 }
 
-// ── Setup dialog styles ───────────────────────────────────────────────────────
-.setup-dialog {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-
-    &__section {
-        padding: 12px;
-        background: #f8fafc;
-        border-radius: 6px;
-        border: 1px solid #e2e8f0;
-    }
-
-    &__section--addresses {
-        background: #f0f4fa;
-        font-size: 0.82rem;
-    }
-
-    &__heading {
-        margin: 0 0 8px 0;
-        font-size: 0.82rem;
-        font-weight: 700;
-        color: #475569;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-    }
-
-    &__widget-list {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    &__widget-row {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 0.82rem;
-        padding: 4px 6px;
-        background: #fff;
-        border-radius: 4px;
-        border: 1px solid #e2e8f0;
-    }
-
-    &__widget-id   { font-weight: 600; color: #1e293b; }
-    &__widget-type { color: #64748b; font-size: 0.76rem; }
-    &__widget-data { color: #3b82f6; font-size: 0.76rem; margin-left: auto; }
-
-    &__remove-btn {
-        background: none;
-        border: none;
-        cursor: pointer;
-        color: #94a3b8;
-        font-size: 0.72rem;
-        padding: 2px 4px;
-        border-radius: 3px;
-
-        &:hover { color: #dc2626; background: rgba(220, 38, 38, 0.08); }
-    }
-
-    &__empty-note { color: #94a3b8; font-size: 0.82rem; margin: 0; }
-
-    &__form {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-
-        label { font-size: 0.78rem; color: #475569; font-weight: 500; }
-    }
-
-    &__required { color: #dc2626; margin-left: 2px; }
-
-    &__data-row {
-        display: flex;
-        gap: 6px;
-        align-items: center;
-    }
-
-    &__data-drop { flex: 1 1 0; }
-
-    &__checkbox-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        cursor: pointer;
-    }
-
-    &__newdef {
-        background: #fff;
-        border: 1px solid #dbeafe;
-        border-radius: 6px;
-        padding: 10px;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-
-        h5 { margin: 0 0 4px 0; font-size: 0.78rem; color: #1d4ed8; }
-        label { font-size: 0.76rem; color: #475569; font-weight: 500; }
-    }
-
-    &__address-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 4px;
-    }
-
-    &__addr-label {
-        font-size: 0.76rem;
-        color: #64748b;
-        min-width: 140px;
-    }
-
-    &__addr-val {
-        font-size: 0.76rem;
-        background: #e2e8f0;
-        padding: 1px 6px;
-        border-radius: 4px;
-        color: #1e293b;
-        user-select: all;
-    }
-}

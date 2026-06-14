@@ -38,13 +38,33 @@ In your MCP config, point to the compiled entry point:
 | Notes | `list_notes`, `create_note`, `update_note`, `delete_note` |
 | Groups | `list_groups`, `create_group`, `update_group`, `delete_group` |
 | Data Definitions | `list_data_definitions`, `get_data_definition`, `create_data_definition`, `update_data_definition`, `set_data_value`, `delete_data_definition` |
-| Dashboards | `list_dashboards`, `get_dashboard`, `create_dashboard`, `update_dashboard_config`, `update_dashboard_title`, `delete_dashboard` |
+| Dashboards | `list_dashboards`, `get_dashboard`, `get_dashboard_by_id`, `create_dashboard`, `update_dashboard_config`, `add_widget`, `remove_widget`, `update_dashboard_title`, `delete_dashboard` |
 
 ## System context resource
 The server exposes `pm://context` — a Markdown document Claude can read to understand the app's data model and how addressing works. Load it at the start of a session to orient Claude.
 
 ## Key patterns
-- Every tool wraps one REST call; no logic lives in the MCP layer.
+- Every tool wraps one REST call; exceptions are `add_widget` and `remove_widget`, which do a GET + PUT in the MCP layer as a convenience.
 - `set_data_value` is the hot path — it updates a metric's value and the server broadcasts it over Socket.IO to all referencing widgets.
-- Dashboard addressing: `(projectId, key)` for lookup; `_id` for mutations.
+- Dashboard addressing: `(projectId, key)` for lookup; `_id` for mutations. `get_dashboard_by_id` accepts just the `_id`.
 - Data definition addressing: `(projectId, id)` for value writes; `_id` for metadata updates.
+- Widget type must match the data definition's valueType — see `pm://context` for the compatibility table.
+
+## Keeping the MCP server current
+
+**The MCP server must be kept in sync with the application as it evolves.**
+
+Whenever a session introduces new concepts, data model changes, UI behaviour changes, or new workflows to the client or server, update the MCP server in the same session:
+
+1. **`src/tools/*.ts`** — Add, remove, or update tool descriptions and Zod schemas to reflect new fields, new endpoints, changed semantics, or deprecated flags.
+2. **`src/index.ts` (context resource)** — Update the `pm://context` Markdown document so Claude has an accurate mental model. Key sections to keep current:
+   - Item type descriptions and their fields
+   - Widget type ↔ data definition type compatibility table
+   - Editing and UI behaviour (e.g. where editors appear)
+   - Workflow examples
+3. **`CLAUDE.md` (this file)** — Update the tool surface table when tools are added or removed.
+
+Rebuild after every change:
+```
+npm run build
+```

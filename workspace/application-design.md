@@ -679,7 +679,7 @@ every level (**P2**).
 | `ProjectsService`    | List/create/update/delete projects; exposes `projectListing$` with a reload subject.                                                                                     |
 | `CanvasDataService`  | For the current host, loads its tasks (via the *with-projections* endpoint, so each task carries its `projectedChildren`) + notes + groups; exposes them as observables; handles add/move/resize/complete/delete, all group operations (enter/exit/reorder/move-between, the reflow engine), and projected-child completion, by delegating to API clients. |
 | `NavigationService`  | Parses the URL task chain, builds the breadcrumb, exposes navigation helpers (drill in, go to parent, jump to crumb).                                                    |
-| `DeletionService`    | Wraps PrimeNG confirmation + the delete API call; the single entry point for all destructive actions (**P6**).                                                           |
+| `DeletionService`    | Wraps PrimeNG confirmation + the delete API call; the single entry point for all destructive actions (**P6**). Covers projects, tasks, notes, groups, and dashboards. Each method takes `(id, label, onSuccess)` — it shows the dialog, calls the API on accept, clears selection, then fires `onSuccess`. The caller's `onSuccess` removes the item from local state only (no second API call). Never call `window.confirm` or any other ad-hoc confirmation for a destructive action — always add a method here. |
 | `DetailsPaneService` | Tracks the edit buffer + dirty state for the selected entity; Accept persists, Cancel reverts.                                                                           |
 
 ### 11.3 API clients

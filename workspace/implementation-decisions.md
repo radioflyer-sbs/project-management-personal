@@ -242,6 +242,22 @@
 
 ---
 
+## D-IMPL-29 — DeletionService is the sole entry point for all destructive actions
+
+**Decision:** Every entity type (project, task, note, group, dashboard) routes its delete through `DeletionService`. Each method follows the same contract:
+
+```
+deleteX(id: string, label: string, onSuccess: () => void): void
+```
+
+The service shows the PrimeNG confirmation dialog, calls the entity's API client on accept, calls `selection.clear()`, then fires `onSuccess`. The caller's `onSuccess` removes the item from local state only — it never calls the API a second time. `window.confirm` and ad-hoc `confirm()` calls are explicitly prohibited for destructive actions.
+
+**Why:** Before this was enforced, `DashboardCardComponent.deleteDashboard()` used a raw `window.confirm()` and emitted an event that triggered `CanvasDataService.removeDashboard()`, which made its own API call. This gave dashboards an inconsistent deletion experience (browser dialog instead of PrimeNG modal) and a double API call. Routing through `DeletionService` gives every entity type the same styled modal, the same selection-clear behavior, and a single API call.
+
+**Pattern for adding new entity deletions:** inject `DeletionService`, add a method following the pattern above (injecting the entity's API client), and ensure the caller's `onSuccess` only mutates local state.
+
+---
+
 ## Open Questions for User Review
 
 1. **Resize minimum enforcement**: When a card is resized below `MIN_ITEM_WIDTH`/`MIN_ITEM_HEIGHT`, the resize is clamped. Should the card "snap back" visually (yes, per spec) or also show an error? Currently: silently clamps.

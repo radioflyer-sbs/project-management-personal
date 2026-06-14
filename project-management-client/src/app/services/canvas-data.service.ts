@@ -230,7 +230,6 @@ export class CanvasDataService {
 
     removeDashboard(dashboardId: string): void {
         this.dashboards$.next(this.dashboards$.getValue().filter(d => (d._id as any) !== dashboardId));
-        this.dashboardApi.delete(dashboardId).subscribe();
     }
 
     getDashboardById(id: string): Dashboard | undefined {

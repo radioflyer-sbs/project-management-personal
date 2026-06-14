@@ -86,3 +86,111 @@
     color: var(--color-text-secondary, #50506a);
     font-family: monospace;
 }
+
+// ── Dashboard widget editors ───────────────────────────────────────────────────
+
+.dp-db-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-text-primary, #1c1c2e);
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: 4px;
+
+    .pi { color: #3b82f6; }
+}
+
+.dp-widget {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--color-border);
+
+    &:last-child { border-bottom: none; }
+
+    &__label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: var(--color-text-secondary, #50506a);
+
+        .pi { color: #64748b; font-size: 0.85rem; }
+    }
+
+    &__type {
+        font-size: 0.67rem;
+        font-weight: 600;
+        background: #eff6ff;
+        color: #2563eb;
+        border: 1px solid #bfdbfe;
+        padding: 1px 6px;
+        border-radius: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-left: auto;
+    }
+
+    &__editor {
+        .w-full { width: 100%; box-sizing: border-box; }
+    }
+
+    &__bool {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+        color: var(--color-text-primary, #1c1c2e);
+    }
+
+    &__list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    &__list-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 4px 8px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 4px;
+        font-size: 0.82rem;
+        color: var(--color-text-primary, #1c1c2e);
+    }
+
+    &__list-del {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #94a3b8;
+        font-size: 0.7rem;
+        padding: 2px 4px;
+        border-radius: 3px;
+        transition: color 0.12s, background 0.12s;
+
+        &:hover { color: #dc2626; background: rgba(220, 38, 38, 0.08); }
+    }
+
+    &__list-add {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        margin-top: 2px;
+
+        .w-full { flex: 1; }
+    }
+
+    &__missing {
+        font-size: 0.78rem;
+        color: #ef4444;
+        font-style: italic;
+    }
+}

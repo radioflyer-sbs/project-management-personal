@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { api } from '../api-client.js';
 
-const UrgencyEnum = z.enum(['low', 'normal', 'high', 'critical']);
+const UrgencyEnum = z.enum(['long-term-goal', 'low', 'normal', 'important', 'urgent', 'immediate']);
 
 export function registerTaskTools(server: McpServer): void {
 

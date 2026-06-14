@@ -6,6 +6,7 @@ import { ProjectApiClient } from './api-clients/project-api.client';
 import { TaskApiClient } from './api-clients/task-api.client';
 import { NoteApiClient } from './api-clients/note-api.client';
 import { GroupApiClient } from './api-clients/group-api.client';
+import { DashboardApiClient } from './api-clients/dashboard-api.client';
 import { SelectionService } from './selection.service';
 
 /** Single entry point for all destructive actions (P6). Always shows a confirmation dialog. */
@@ -14,12 +15,13 @@ export class DeletionService {
 
     constructor() { }
 
-    private readonly confirmation = inject(ConfirmationService);
-    private readonly projectApi   = inject(ProjectApiClient);
-    private readonly taskApi      = inject(TaskApiClient);
-    private readonly noteApi      = inject(NoteApiClient);
-    private readonly groupApi     = inject(GroupApiClient);
-    private readonly selection    = inject(SelectionService);
+    private readonly confirmation  = inject(ConfirmationService);
+    private readonly projectApi    = inject(ProjectApiClient);
+    private readonly taskApi       = inject(TaskApiClient);
+    private readonly noteApi       = inject(NoteApiClient);
+    private readonly groupApi      = inject(GroupApiClient);
+    private readonly dashboardApi  = inject(DashboardApiClient);
+    private readonly selection     = inject(SelectionService);
 
     deleteProject(id: string, name: string, onSuccess: () => void): void {
         this.confirmation.confirm({
@@ -70,6 +72,20 @@ export class DeletionService {
             icon:    'pi pi-exclamation-triangle',
             accept:  () => {
                 this.noteApi.delete(id).subscribe(() => {
+                    this.selection.clear();
+                    onSuccess();
+                });
+            },
+        });
+    }
+
+    deleteDashboard(id: string, title: string, onSuccess: () => void): void {
+        this.confirmation.confirm({
+            header:  'Delete Dashboard',
+            message: `Delete "${title}"? This cannot be undone.`,
+            icon:    'pi pi-exclamation-triangle',
+            accept:  () => {
+                this.dashboardApi.delete(id).subscribe(() => {
                     this.selection.clear();
                     onSuccess();
                 });

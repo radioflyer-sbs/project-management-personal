@@ -7,18 +7,22 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { TextareaModule } from 'primeng/textarea';
 import { SelectModule } from 'primeng/select';
+import { DropdownModule } from 'primeng/dropdown';
 import { CheckboxModule } from 'primeng/checkbox';
 import { ColorPickerModule } from 'primeng/colorpicker';
-import { DividerModule } from 'primeng/divider';
+import { InputNumberModule } from 'primeng/inputnumber';
 import { ComponentBase } from '../component-base/component-base.component';
 import { SelectionService, SelectedItem } from '../../services/selection.service';
 import { DetailsPaneService } from '../../services/details-pane.service';
 import { DeletionService } from '../../services/deletion.service';
 import { CanvasDataService } from '../../services/canvas-data.service';
 import { ProjectsService } from '../../services/projects.service';
+import { DataDefinitionApiClient } from '../../services/api-clients/data-definition-api.client';
 import { Task } from '../../../model/shared-models/task.model';
 import { Note } from '../../../model/shared-models/note.model';
 import { Project } from '../../../model/shared-models/project.model';
+import { Dashboard, DashboardWidget } from '../../../model/shared-models/dashboard.model';
+import { DataDefinition, DataValue } from '../../../model/shared-models/data-definition.model';
 import { TaskUrgency } from '../../../model/shared-models/task-urgency.enum';
 
 @Component({
@@ -27,7 +31,8 @@ import { TaskUrgency } from '../../../model/shared-models/task-urgency.enum';
     imports: [
         CommonModule, FormsModule,
         ButtonModule, InputTextModule, TextareaModule,
-        SelectModule, CheckboxModule, ColorPickerModule, DividerModule,
+        SelectModule, DropdownModule, CheckboxModule, ColorPickerModule,
+        InputNumberModule,
     ],
     templateUrl: './details-pane.component.html',
     styleUrl: './details-pane.component.scss',
@@ -44,10 +49,11 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
     private readonly deletionService  = inject(DeletionService);
     private readonly canvasData       = inject(CanvasDataService);
     private readonly projectsService  = inject(ProjectsService);
+    private readonly dataDefApi       = inject(DataDefinitionApiClient);
 
     selection: SelectedItem = null;
 
-    // Edit buffers
+    // Edit buffers — task/note/project
     editTitle            = '';
     editDescription      = '';
     editDetails          = '';
@@ -59,6 +65,13 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
     // Host edit buffers
     hostName        = '';
     hostDescription = '';
+
+    // Dashboard widget value buffers
+    defValueMap:    Record<string, DataValue>  = {};
+    listValueMap:   Record<string, string[]>   = {};
+    newListItemMap: Record<string, string>     = {};
+
+    private currentDashboardId: string | null = null;
 
     readonly urgencyOptions = [
         { label: 'Long Term Goal', value: TaskUrgency.LongTermGoal },
@@ -74,8 +87,7 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
 
     ngOnInit(): void {
         this.selectionService.currentSelection$.pipe(takeUntil(this.ngDestroy$)).subscribe(sel => {
-            // Flush any unsaved changes for the previous item before switching.
-            if (this.pendingSave) { this.flushSave(); }
+            if (this.pendingSave && sel?.type !== 'dashboard') { this.flushSave(); }
             this.selection = sel;
             this.populateBuffers(sel);
         });
@@ -107,6 +119,17 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
     }
 
     private populateBuffers(sel: SelectedItem): void {
+        if (sel?.type === 'dashboard') {
+            const id = sel.item._id as string;
+            if (id !== this.currentDashboardId) {
+                this.currentDashboardId = id;
+                this.populateDashboardValues(sel.defs);
+            }
+            return;
+        }
+
+        this.currentDashboardId = null;
+
         if (!sel) {
             if (this.hostTask) {
                 this.editTitle           = this.hostTask.title;
@@ -134,6 +157,57 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
         }
     }
 
+    private populateDashboardValues(defs: DataDefinition[]): void {
+        this.defValueMap    = {};
+        this.listValueMap   = {};
+        this.newListItemMap = {};
+        defs.forEach(def => {
+            if (def.valueType === 'list') {
+                this.listValueMap[def.id]   = Array.isArray(def.value) ? [...def.value as string[]] : [];
+                this.newListItemMap[def.id] = '';
+            } else if (def.valueType === 'boolean') {
+                this.defValueMap[def.id] = !!def.value;
+            } else if (def.valueType === 'number') {
+                this.defValueMap[def.id] = typeof def.value === 'number' ? def.value : 0;
+            } else {
+                this.defValueMap[def.id] = def.value != null ? String(def.value) : '';
+            }
+        });
+    }
+
+    getDefForWidget(dataId: string): DataDefinition | undefined {
+        const sel = this.selection;
+        if (sel?.type !== 'dashboard') { return undefined; }
+        return sel.defs.find(d => d.id === dataId);
+    }
+
+    saveDefValue(def: DataDefinition, value: DataValue): void {
+        const sel = this.selection;
+        if (sel?.type !== 'dashboard') { return; }
+        const projectId = sel.item.projectId as string;
+        this.dataDefApi.setValue(projectId, def.id, value)
+            .pipe(takeUntil(this.ngDestroy$))
+            .subscribe(updated => {
+                const updatedDefs = sel.defs.map(d => d.id === updated.id ? updated : d);
+                this.selectionService.updateDashboardDefs(updatedDefs);
+            });
+    }
+
+    addListItem(def: DataDefinition): void {
+        const newItem = (this.newListItemMap[def.id] ?? '').trim();
+        if (!newItem) { return; }
+        this.newListItemMap[def.id] = '';
+        const updated = [...(this.listValueMap[def.id] ?? []), newItem];
+        this.listValueMap[def.id] = updated;
+        this.saveDefValue(def, updated);
+    }
+
+    removeListItem(def: DataDefinition, index: number): void {
+        const updated = (this.listValueMap[def.id] ?? []).filter((_, i) => i !== index);
+        this.listValueMap[def.id] = updated;
+        this.saveDefValue(def, updated);
+    }
+
     get showingTask(): boolean {
         return this.selection?.type === 'task' || (!this.selection && !!this.hostTask);
     }
@@ -144,6 +218,10 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
 
     get showingProject(): boolean {
         return this.selection?.type === 'project' || (!this.selection && !!this.hostProject && !this.hostTask);
+    }
+
+    get showingDashboard(): boolean {
+        return this.selection?.type === 'dashboard';
     }
 
     get showProjectToParent(): boolean {
@@ -163,6 +241,13 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
     get effectiveProject(): Project | null {
         if (this.selection?.type === 'project') { return this.selection.item; }
         return this.hostProject;
+    }
+
+    get effectiveDashboard(): { item: Dashboard; defs: DataDefinition[] } | null {
+        if (this.selection?.type === 'dashboard') {
+            return { item: this.selection.item, defs: this.selection.defs };
+        }
+        return null;
     }
 
     saveTask(): void {

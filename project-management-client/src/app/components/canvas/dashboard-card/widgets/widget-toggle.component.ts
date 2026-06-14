@@ -1,14 +1,12 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { ToggleButtonModule } from 'primeng/togglebutton';
 import { DashboardWidget } from '../../../../../model/shared-models/dashboard.model';
 import { DataDefinition } from '../../../../../model/shared-models/data-definition.model';
 
 @Component({
     selector: 'app-widget-toggle',
     standalone: true,
-    imports: [CommonModule, FormsModule, ToggleButtonModule],
+    imports: [CommonModule],
     template: `
         <div class="widget widget--toggle">
             <div class="widget__header" *ngIf="widget.label || widget.icon">
@@ -16,13 +14,11 @@ import { DataDefinition } from '../../../../../model/shared-models/data-definiti
                 <span *ngIf="widget.label" class="widget__label">{{ widget.label }}</span>
             </div>
             <div class="widget__body">
-                <p-toggleButton
-                    [(ngModel)]="toggleValue"
-                    [onLabel]="onLabel"
-                    [offLabel]="offLabel"
-                    [disabled]="!widget.editable"
-                    (onChange)="valueChanged.emit($event.checked)">
-                </p-toggleButton>
+                <span class="widget__toggle-badge"
+                    [class.widget__toggle-badge--on]="isOn"
+                    [class.widget__toggle-badge--off]="!isOn">
+                    {{ isOn ? 'On' : 'Off' }}
+                </span>
             </div>
         </div>
     `,
@@ -32,9 +28,5 @@ export class WidgetToggleComponent {
     @Input() dataDef: DataDefinition | undefined;
     @Output() valueChanged = new EventEmitter<boolean>();
 
-    get toggleValue(): boolean { return !!this.dataDef?.value; }
-    set toggleValue(_v: boolean) { /* handled via onChange */ }
-
-    get onLabel(): string { return 'On'; }
-    get offLabel(): string { return 'Off'; }
+    get isOn(): boolean { return !!this.dataDef?.value; }
 }

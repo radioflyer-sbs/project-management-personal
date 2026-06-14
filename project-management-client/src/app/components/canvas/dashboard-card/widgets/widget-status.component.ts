@@ -1,14 +1,12 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { DropdownModule } from 'primeng/dropdown';
 import { DashboardWidget } from '../../../../../model/shared-models/dashboard.model';
 import { DataDefinition } from '../../../../../model/shared-models/data-definition.model';
 
 @Component({
     selector: 'app-widget-status',
     standalone: true,
-    imports: [CommonModule, FormsModule, DropdownModule],
+    imports: [CommonModule],
     template: `
         <div class="widget widget--status">
             <div class="widget__header" *ngIf="widget.label || widget.icon">
@@ -17,12 +15,6 @@ import { DataDefinition } from '../../../../../model/shared-models/data-definiti
             </div>
             <div class="widget__body">
                 <span class="widget__status-pill">{{ displayValue }}</span>
-                <p-dropdown *ngIf="widget.editable"
-                    [options]="statusOptions"
-                    [(ngModel)]="selectedValue"
-                    (onChange)="valueChanged.emit($event.value)"
-                    appendTo="body">
-                </p-dropdown>
             </div>
         </div>
     `,
@@ -36,11 +28,4 @@ export class WidgetStatusComponent {
         const v = this.dataDef?.value;
         return v !== null && v !== undefined ? String(v) : '—';
     }
-
-    get statusOptions(): string[] {
-        return this.dataDef?.options?.enumOptions ?? [];
-    }
-
-    get selectedValue(): string { return this.displayValue; }
-    set selectedValue(_v: string) { /* handled by onChange */ }
 }

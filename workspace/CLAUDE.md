@@ -33,6 +33,17 @@ Feature areas added after the first pass (see the design spec sections noted, an
   layout-derived reading order computed server-side (§5.10, §6.4, §8.9).
 - **Inline card editing** and **inline completion toggles** (§7.3; updates decision D6).
 
+## MCP server maintenance
+
+**`project-management-mcp/` must be kept in sync with the app as it evolves.**
+
+Whenever a session changes the data model, adds new concepts, alters UI behaviour, or adds/removes API endpoints, update the MCP server in the same session:
+- `src/tools/*.ts` — Zod schemas, tool descriptions, new/removed tools
+- `src/index.ts` — the `pm://context` resource (data model, widget type compatibility table, workflow examples, editing behaviour)
+- `project-management-mcp/CLAUDE.md` — tool surface table
+
+See `project-management-mcp/CLAUDE.md` for the full guidance.
+
 ## Standards reference
 See `C:\Users\rolso\.claude\skills\mean-stack-project-setup\references\project-standards.md`
 for the full coding standards that govern both projects.

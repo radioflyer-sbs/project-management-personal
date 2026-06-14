@@ -1,24 +1,20 @@
 import {
     Component, Input, Output, EventEmitter, inject, OnInit, OnChanges, SimpleChanges,
-    NgZone, ElementRef, ViewContainerRef, ComponentRef, ViewChild,
+    NgZone, ElementRef,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { takeUntil } from 'rxjs/operators';
 import { ButtonModule } from 'primeng/button';
-import { InputTextModule } from 'primeng/inputtext';
-import { DropdownModule } from 'primeng/dropdown';
-import { DialogModule } from 'primeng/dialog';
-import { CheckboxModule } from 'primeng/checkbox';
 import { TooltipModule } from 'primeng/tooltip';
 import { ComponentBase } from '../../component-base/component-base.component';
 import { CanvasInteractionService } from '../../../services/canvas-interaction.service';
+import { SelectionService } from '../../../services/selection.service';
+import { DeletionService } from '../../../services/deletion.service';
 import { DataDefinitionApiClient } from '../../../services/api-clients/data-definition-api.client';
-import { DashboardApiClient } from '../../../services/api-clients/dashboard-api.client';
-import { Dashboard, DashboardWidget, DashboardWidgetType, DashboardConfig } from '../../../../model/shared-models/dashboard.model';
-import { DataDefinition, DataValue, DataValueType } from '../../../../model/shared-models/data-definition.model';
+import { Dashboard, DashboardWidget } from '../../../../model/shared-models/dashboard.model';
+import { DataDefinition, DataValue } from '../../../../model/shared-models/data-definition.model';
 import { Layout } from '../../../../model/shared-models/layout.model';
-import { WIDGET_REGISTRY, WIDGET_TYPE_OPTIONS } from './widget-registry';
 import { WidgetNumberComponent } from './widgets/widget-number.component';
 import { WidgetProgressComponent } from './widgets/widget-progress.component';
 import { WidgetStatusComponent } from './widgets/widget-status.component';
@@ -31,8 +27,8 @@ import { WidgetGaugeComponent } from './widgets/widget-gauge.component';
     selector: 'app-dashboard-card',
     standalone: true,
     imports: [
-        CommonModule, FormsModule,
-        ButtonModule, InputTextModule, DropdownModule, DialogModule, CheckboxModule, TooltipModule,
+        CommonModule,
+        ButtonModule, TooltipModule,
         WidgetNumberComponent, WidgetProgressComponent, WidgetStatusComponent,
         WidgetTextComponent, WidgetListComponent, WidgetToggleComponent, WidgetGaugeComponent,
     ],
@@ -53,48 +49,33 @@ export class DashboardCardComponent extends ComponentBase implements OnInit, OnC
     @Output() dashboardUpdated$ = new EventEmitter<Dashboard>();
     @Output() dashboardDeleted$ = new EventEmitter<string>();
 
-    @ViewChild('widgetsContainer', { read: ViewContainerRef }) widgetVCR!: ViewContainerRef;
-
-    private readonly interaction    = inject(CanvasInteractionService);
-    private readonly zone           = inject(NgZone);
-    private readonly el             = inject(ElementRef<HTMLElement>);
-    private readonly dataDefApi     = inject(DataDefinitionApiClient);
-    private readonly dashboardApi   = inject(DashboardApiClient);
+    private readonly interaction = inject(CanvasInteractionService);
+    private readonly zone        = inject(NgZone);
+    private readonly el          = inject(ElementRef<HTMLElement>);
+    private readonly dataDefApi  = inject(DataDefinitionApiClient);
+    private readonly router      = inject(Router);
+    private readonly selection   = inject(SelectionService);
+    private readonly deletion    = inject(DeletionService);
 
     localLayout!: Layout;
     private isDragging = false;
 
+    isSelected   = false;
     dataDefs: DataDefinition[] = [];
-    private widgetRefs: ComponentRef<any>[] = [];
-
-    // Setup dialog
-    showSetupDialog = false;
-    newWidgetType: DashboardWidgetType = DashboardWidgetType.Number;
-    newWidgetLabel = '';
-    newWidgetIcon = '';
-    newWidgetId = '';
-    newWidgetDataId = '';
-    newWidgetEditable = false;
-    widgetTypeOptions = WIDGET_TYPE_OPTIONS;
-
-    // Data definition creation within setup
-    showNewDefForm = false;
-    newDefId = '';
-    newDefLabel = '';
-    newDefValueType: DataValueType = 'number';
-    newDefValue: string = '0';
-    valueTypeOptions: Array<{ label: string; value: DataValueType }> = [
-        { label: 'Number',    value: 'number' },
-        { label: 'Text',      value: 'text' },
-        { label: 'Boolean',   value: 'boolean' },
-        { label: 'Enum',      value: 'enum' },
-        { label: 'Timestamp', value: 'timestamp' },
-        { label: 'List',      value: 'list' },
-    ];
 
     ngOnInit(): void {
         this.localLayout = { ...this.dashboard.layout };
         this.loadDataDefs();
+
+        // Track selection state and sync defs when this dashboard is selected.
+        this.selection.currentSelection$.pipe(takeUntil(this.ngDestroy$)).subscribe(sel => {
+            if (sel?.type === 'dashboard' && (sel.item._id as any) === (this.dashboard._id as any)) {
+                this.isSelected = true;
+                this.dataDefs   = sel.defs;
+            } else {
+                this.isSelected = false;
+            }
+        });
 
         this.zone.runOutsideAngular(() => {
             this.interaction.moveDragging$.pipe(takeUntil(this.ngDestroy$)).subscribe(e => {
@@ -139,10 +120,6 @@ export class DashboardCardComponent extends ComponentBase implements OnInit, OnC
         el.style.zIndex = String(layout.zIndex);
     }
 
-    getWidgetComponent(type: DashboardWidgetType): any {
-        return WIDGET_REGISTRY[type];
-    }
-
     getDataDef(dataId: string): DataDefinition | undefined {
         return this.dataDefs.find(d => d.id === dataId);
     }
@@ -153,109 +130,42 @@ export class DashboardCardComponent extends ComponentBase implements OnInit, OnC
         });
     }
 
-    openSetup(): void {
-        this.resetNewWidgetForm();
-        this.showSetupDialog = true;
+    openEditor(): void {
+        this.router.navigate(['/projects', this.projectId, 'dashboard', this.dashboard._id]);
     }
 
-    closeSetup(): void {
-        this.showSetupDialog = false;
-        this.showNewDefForm = false;
-    }
-
-    private resetNewWidgetForm(): void {
-        this.newWidgetType     = DashboardWidgetType.Number;
-        this.newWidgetLabel    = '';
-        this.newWidgetIcon     = '';
-        this.newWidgetId       = '';
-        this.newWidgetDataId   = '';
-        this.newWidgetEditable = false;
-        this.showNewDefForm    = false;
-    }
-
-    addWidget(): void {
-        if (!this.newWidgetId || !this.newWidgetDataId) { return; }
-
-        const exists = this.dashboard.config.widgets.some(w => w.id === this.newWidgetId);
-        if (exists) { alert(`Widget id '${this.newWidgetId}' already exists in this dashboard.`); return; }
-
-        const defExists = this.dataDefs.some(d => d.id === this.newWidgetDataId);
-        if (!defExists) { alert(`Data definition '${this.newWidgetDataId}' not found.`); return; }
-
-        const newWidget: DashboardWidget = {
-            id:       this.newWidgetId,
-            dataId:   this.newWidgetDataId,
-            type:     this.newWidgetType,
-            label:    this.newWidgetLabel || undefined,
-            icon:     this.newWidgetIcon  || undefined,
-            editable: this.newWidgetEditable,
-        };
-
-        const updated: DashboardConfig = {
-            widgets: [...this.dashboard.config.widgets, newWidget],
-        };
-
-        this.dashboardApi.update(this.dashboard._id as string, { config: updated }).subscribe(result => {
-            this.dashboardUpdated$.emit(result);
-            this.resetNewWidgetForm();
-        });
-    }
-
-    removeWidget(widgetId: string): void {
-        const updated: DashboardConfig = {
-            widgets: this.dashboard.config.widgets.filter(w => w.id !== widgetId),
-        };
-        this.dashboardApi.update(this.dashboard._id as string, { config: updated }).subscribe(result => {
-            this.dashboardUpdated$.emit(result);
-        });
-    }
-
-    createDataDef(): void {
-        if (!this.newDefId) { return; }
-        let parsedValue: DataValue = this.newDefValue;
-        if (this.newDefValueType === 'number') { parsedValue = parseFloat(this.newDefValue) || 0; }
-        if (this.newDefValueType === 'boolean') { parsedValue = this.newDefValue === 'true'; }
-        if (this.newDefValueType === 'list') { parsedValue = []; }
-
-        this.dataDefApi.create({
-            projectId: this.projectId,
-            id:        this.newDefId,
-            label:     this.newDefLabel || undefined,
-            valueType: this.newDefValueType,
-            value:     parsedValue,
-        }).subscribe({
-            next: def => {
-                this.dataDefs = [...this.dataDefs, def];
-                this.newWidgetDataId = def.id;
-                this.showNewDefForm = false;
-                this.newDefId = '';
-                this.newDefLabel = '';
-            },
-            error: err => {
-                if (err.status === 409) {
-                    alert(`Data definition id '${this.newDefId}' already exists in this project.`);
-                }
-            },
-        });
+    openMetrics(): void {
+        this.router.navigate(['/projects', this.projectId, 'metrics']);
     }
 
     deleteDashboard(): void {
-        this.dashboardDeleted$.emit(this.dashboard._id as string);
+        this.deletion.deleteDashboard(
+            this.dashboard._id as string,
+            this.dashboard.title,
+            () => this.dashboardDeleted$.emit(this.dashboard._id as string),
+        );
     }
 
-    onMousedown(e: MouseEvent): void {
+    /** Root card mousedown — selects the dashboard without starting a drag. */
+    onBodyMousedown(e: MouseEvent): void {
         if (e.button !== 0) { return; }
         e.stopPropagation();
         this.selected$.emit(this.dashboard);
+        this.selection.selectDashboard(this.dashboard, this.dataDefs);
+    }
+
+    /** Header mousedown — selects and starts a drag. Stops bubbling to root. */
+    onHeaderMousedown(e: MouseEvent): void {
+        if (e.button !== 0) { return; }
+        e.stopPropagation();
+        this.selected$.emit(this.dashboard);
+        this.selection.selectDashboard(this.dashboard, this.dataDefs);
         this.dragStarted$.emit(e as unknown as PointerEvent);
     }
 
     onResizeMousedown(handle: string, e: MouseEvent): void {
+        if (!this.isSelected) { return; }
         e.stopPropagation();
         this.resizeStarted$.emit({ handle, e: e as unknown as PointerEvent });
-    }
-
-    get dataDefOptions(): Array<{ label: string; value: string }> {
-        return this.dataDefs.map(d => ({ label: `${d.id}${d.label ? ' — ' + d.label : ''}`, value: d.id }));
     }
 }

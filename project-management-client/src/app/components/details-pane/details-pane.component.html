@@ -1,7 +1,8 @@
 <div class="details-pane">
     <div class="details-pane__header">
         <span class="details-pane__heading">
-            @if (showingTask) { Task Details }
+            @if (showingDashboard) { Dashboard }
+            @else if (showingTask) { Task Details }
             @else if (showingNote) { Note Details }
             @else if (showingProject) { Project Details }
             @else { Details }
@@ -9,6 +10,103 @@
     </div>
 
     <div class="details-pane__content">
+
+        <!-- Dashboard widget editors -->
+        @if (showingDashboard && effectiveDashboard) {
+            <div class="dp-db-title">
+                <i class="pi pi-chart-bar"></i>
+                <span>{{ effectiveDashboard.item.title }}</span>
+            </div>
+
+            @if (effectiveDashboard.item.config.widgets.length === 0) {
+                <div class="details-pane__empty">No widgets — use the editor to add some.</div>
+            }
+
+            @for (widget of effectiveDashboard.item.config.widgets; track widget.id) {
+                <div class="dp-widget">
+                    <div class="dp-widget__label">
+                        <i *ngIf="widget.icon" class="pi {{ widget.icon }}"></i>
+                        <span>{{ widget.label || widget.id }}</span>
+                        @if (getDefForWidget(widget.dataId); as def) {
+                            <span class="dp-widget__type">{{ def.valueType }}</span>
+                        }
+                    </div>
+
+                    @if (getDefForWidget(widget.dataId); as def) {
+                        <div class="dp-widget__editor">
+
+                            <!-- number (also covers progress and gauge widget types) -->
+                            @if (def.valueType === 'number') {
+                                <p-inputNumber
+                                    [(ngModel)]="$any(defValueMap)[def.id]"
+                                    [useGrouping]="false"
+                                    [min]="def.options?.min ?? null"
+                                    [max]="def.options?.max ?? null"
+                                    (onBlur)="saveDefValue(def, $any(defValueMap)[def.id])"
+                                    styleClass="w-full" />
+                            }
+
+                            <!-- text / timestamp -->
+                            @else if (def.valueType === 'text' || def.valueType === 'timestamp') {
+                                <input pInputText
+                                    [(ngModel)]="$any(defValueMap)[def.id]"
+                                    class="w-full"
+                                    (change)="saveDefValue(def, $any(defValueMap)[def.id])" />
+                            }
+
+                            <!-- boolean -->
+                            @else if (def.valueType === 'boolean') {
+                                <div class="dp-widget__bool">
+                                    <p-checkbox
+                                        [(ngModel)]="$any(defValueMap)[def.id]"
+                                        [binary]="true"
+                                        [inputId]="'dp-bool-' + def.id"
+                                        (onChange)="saveDefValue(def, $any(defValueMap)[def.id])" />
+                                    <label [for]="'dp-bool-' + def.id">
+                                        {{ $any(defValueMap)[def.id] ? 'On' : 'Off' }}
+                                    </label>
+                                </div>
+                            }
+
+                            <!-- enum -->
+                            @else if (def.valueType === 'enum') {
+                                <p-dropdown
+                                    [(ngModel)]="$any(defValueMap)[def.id]"
+                                    [options]="def.options?.enumOptions ?? []"
+                                    (onChange)="saveDefValue(def, $any(defValueMap)[def.id])"
+                                    appendTo="body"
+                                    styleClass="w-full" />
+                            }
+
+                            <!-- list -->
+                            @else if (def.valueType === 'list') {
+                                <div class="dp-widget__list">
+                                    @for (item of listValueMap[def.id]; track $index; let i = $index) {
+                                        <div class="dp-widget__list-item">
+                                            <span>{{ item }}</span>
+                                            <button class="dp-widget__list-del pi pi-times"
+                                                (click)="removeListItem(def, i)"></button>
+                                        </div>
+                                    }
+                                    <div class="dp-widget__list-add">
+                                        <input pInputText
+                                            [(ngModel)]="newListItemMap[def.id]"
+                                            placeholder="Add item…"
+                                            class="w-full"
+                                            (keydown.enter)="addListItem(def)" />
+                                        <button pButton icon="pi pi-plus" class="p-button-sm"
+                                            (click)="addListItem(def)"></button>
+                                    </div>
+                                </div>
+                            }
+
+                        </div>
+                    } @else {
+                        <span class="dp-widget__missing">Metric "{{ widget.dataId }}" not found</span>
+                    }
+                </div>
+            }
+        }
 
         <!-- Task editing -->
         @if (showingTask && effectiveTask) {
@@ -80,7 +178,7 @@
             </div>
         }
 
-        @if (!showingTask && !showingNote && !showingProject) {
+        @if (!showingTask && !showingNote && !showingProject && !showingDashboard) {
             <div class="details-pane__empty">
                 <p>Click an item to view its details.</p>
             </div>

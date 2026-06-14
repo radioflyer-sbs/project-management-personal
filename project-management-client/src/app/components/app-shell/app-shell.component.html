@@ -6,6 +6,11 @@
     <div class="app-header__breadcrumb">
         <p-breadcrumb [model]="breadcrumbs" styleClass="app-breadcrumb" />
     </div>
+    @if (currentProjectId) {
+        <button class="app-header__settings-btn" [routerLink]="['/projects', currentProjectId, 'metrics']" title="Data Metrics">
+            <i class="pi pi-chart-line"></i>
+        </button>
+    }
     <button class="app-header__settings-btn" [routerLink]="['/settings']" title="Settings">
         <i class="pi pi-cog"></i>
     </button>
