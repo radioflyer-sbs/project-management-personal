@@ -1,6 +1,6 @@
 /** Thin HTTP client for the Project Management REST API. */
 
-const BASE_URL = process.env['PM_API_URL'] ?? 'http://localhost:1073/api';
+const BASE_URL = process.env['PM_API_URL'] ?? 'http://localhost:1089/api';
 
 export function getApiBaseUrl(): string { return BASE_URL; }
 

@@ -1,0 +1,22 @@
+<div class="reading-pane">
+
+    <div class="reading-pane__header">
+        @if (title) {
+            <span class="reading-pane__title" [title]="title">{{ title }}</span>
+        } @else {
+            <span class="reading-pane__title reading-pane__title--placeholder">Reading Pane</span>
+        }
+    </div>
+
+    <div class="reading-pane__content">
+        @if (!hasContent) {
+            <p class="reading-pane__hint">Select a task or note to read its description here.</p>
+        } @else if (!body) {
+            <p class="reading-pane__hint">No description.</p>
+        } @else {
+            <div class="reading-pane__body">{{ body }}</div>
+        }
+    </div>
+
+    <div class="reading-pane__resize-handle" (mousedown)="onResizeStart($event)"></div>
+</div>

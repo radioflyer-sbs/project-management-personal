@@ -15,7 +15,7 @@ npm start         # run compiled server (stdio transport)
 ```
 
 ## API base URL
-Defaults to `http://localhost:1073/api`. Override with `PM_API_URL` env variable.
+Defaults to `http://localhost:1089/api`. Override with `PM_API_URL` env variable.
 
 ## MCP registration (Claude Desktop / Claude Code)
 In your MCP config, point to the compiled entry point:

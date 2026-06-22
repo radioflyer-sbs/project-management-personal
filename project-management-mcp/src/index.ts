@@ -328,7 +328,7 @@ All move/resize tools emit real-time Socket.IO events so the browser updates imm
 ---
 
 ## API base
-\`http://localhost:1073/api\` — override with \`PM_API_URL\` env variable.
+\`http://localhost:1089/api\` — override with \`PM_API_URL\` env variable.
 `,
         }],
     })

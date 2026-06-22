@@ -27,6 +27,7 @@ import { NoteCardComponent } from '../canvas/note-card/note-card.component';
 import { GroupCardComponent } from '../canvas/group-card/group-card.component';
 import { DashboardCardComponent } from '../canvas/dashboard-card/dashboard-card.component';
 import { DetailsPaneComponent } from '../details-pane/details-pane.component';
+import { ReadingPaneComponent } from '../reading-pane/reading-pane.component';
 import { CanvasContextMenuComponent, ContextMenuItem } from '../canvas/canvas-context-menu/canvas-context-menu.component';
 import { Task } from '../../../model/shared-models/task.model';
 import { Note } from '../../../model/shared-models/note.model';
@@ -44,7 +45,7 @@ import { TaskUrgency } from '../../../model/shared-models/task-urgency.enum';
         CommonModule, FormsModule,
         ButtonModule, DialogModule, InputTextModule, TextareaModule, ConfirmDialogModule, TooltipModule,
         TaskCardComponent, NoteCardComponent, GroupCardComponent, DashboardCardComponent,
-        DetailsPaneComponent, CanvasContextMenuComponent,
+        DetailsPaneComponent, CanvasContextMenuComponent, ReadingPaneComponent,
     ],
     templateUrl: './canvas-host.component.html',
     styleUrl: './canvas-host.component.scss',
@@ -82,6 +83,8 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
 
     projectId = '';
     taskIds: string[] = [];
+
+    readingPaneVisible = false;
 
     showEditDialog  = false;
     editName        = '';

@@ -16,7 +16,7 @@ Project Management application. Single user, no login system. Allows managing mu
 ```
 npm start
 ```
-Runs on **port 1073**
+Runs on **port 1089**
 
 MongoDB: `mongodb://mongo.fingercraft.run:27017` → database `project-management-db`
 

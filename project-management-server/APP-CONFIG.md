@@ -28,7 +28,7 @@ Each leaf can be overridden at runtime:
 ```json
 {
   "serverConfig": {
-    "port": 1073,
+    "port": 1089,
     "jwtSecret": "<your-jwt-secret-here>"
   },
   "mongo": {

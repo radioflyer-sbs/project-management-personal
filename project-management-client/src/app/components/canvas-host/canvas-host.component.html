@@ -2,6 +2,15 @@
 
     <!-- Toolbar -->
     <div class="canvas-toolbar">
+        <p-button
+            icon="pi pi-book"
+            [text]="true"
+            size="small"
+            [pTooltip]="readingPaneVisible ? 'Hide reading pane' : 'Show reading pane'"
+            tooltipPosition="right"
+            appendTo="body"
+            (onClick)="readingPaneVisible = !readingPaneVisible"
+        />
         @if (isTaskCanvas) {
             <p-button icon="pi pi-arrow-left" [text]="true" size="small" (onClick)="goBack()" pTooltip="Back" tooltipPosition="right" appendTo="body" />
         }
@@ -27,8 +36,13 @@
         <p-button icon="pi pi-trash" [text]="true" severity="danger" size="small" (onClick)="deleteHost()" pTooltip="Delete" tooltipPosition="left" appendTo="body" />
     </div>
 
-    <!-- Main area: canvas + details pane -->
+    <!-- Main area: reading pane + canvas + details pane -->
     <div class="canvas-host__body">
+        <!-- Reading pane (left, optional) -->
+        @if (readingPaneVisible) {
+            <app-reading-pane />
+        }
+
         <!-- Canvas area -->
         <div
             #canvasArea

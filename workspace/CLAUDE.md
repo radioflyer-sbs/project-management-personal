@@ -16,7 +16,7 @@ There is no login system; all data is shared and accessible to the one user.
 | Service | Port |
 |---------|------|
 | Angular dev server | 54201 |
-| Express API | 1073 |
+| Express API | 1089 |
 
 ## Design specification
 **`application-design.md`** is the canonical design reference — design principles (P0–P8),
