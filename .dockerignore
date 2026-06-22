@@ -1,0 +1,19 @@
+# Exclude heavy directories from the Docker build context.
+# The build context is the repo root (used by local-deploy/docker-compose.yml).
+# These entries prevent uploading node_modules and build artifacts to the daemon,
+# which keeps context upload fast and layer caching correct.
+
+**/node_modules
+**/dist
+**/.angular
+**/.git
+**/*.log
+
+# Environment and secrets
+**/.env
+# Exclude the live server config (contains secrets) but allow the deploy template
+project-management-server/app-config.json
+
+# Dev tooling
+**/.vscode
+**/.idea

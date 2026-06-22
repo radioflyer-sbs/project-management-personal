@@ -17,6 +17,24 @@ There is no login system; all data is shared and accessible to the one user.
 |---------|------|
 | Angular dev server | 54201 |
 | Express API | 1089 |
+| Local Docker deployment (nginx) | 80 (configurable via `PM_PORT`) |
+
+## Local Docker deployment
+
+**`local-deploy/`** contains Docker Compose configuration for running the full stack
+locally via three containers: `pm-nginx` (reverse proxy), `pm-client` (Angular static
+files), `pm-server` (Express API). MongoDB is **not** managed there — it must be a
+separate container. See `local-deploy/CLAUDE.md` for setup instructions and design notes.
+
+Key design choices in that folder:
+- Build context is the **repo root** so Dockerfiles can reach both sub-project sources
+  and deploy-specific config overrides (environment.ts, app-config.json).
+- `../.dockerignore` at the repo root excludes `node_modules`/`dist`/`.angular` — do
+  not delete it or builds will re-run `npm ci` on every source change.
+- The Angular production environment is overridden by `local-deploy/client/environment.ts`
+  at build time, setting `apiBaseUrl: '/api'` so all calls route through nginx.
+- `corsAllowed` in `local-deploy/server/app-config.json` is hardcoded to `http://localhost`
+  (port 80). If `PM_PORT` changes, that file and a server image rebuild are required.
 
 ## Design specification
 **`application-design.md`** is the canonical design reference — design principles (P0–P8),

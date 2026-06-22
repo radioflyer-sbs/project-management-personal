@@ -1,0 +1,17 @@
+# Secrets and runtime config — never commit these
+.env
+*.env
+/app-config.json
+
+# Dependencies and build output (each sub-project has its own, but catch any at root)
+node_modules/
+dist/
+.angular/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db

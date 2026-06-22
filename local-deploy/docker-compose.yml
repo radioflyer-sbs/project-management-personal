@@ -1,0 +1,56 @@
+services:
+
+  # Reverse proxy — single entry point for the browser
+  pm-nginx:
+    image: nginx:alpine
+    ports:
+      - "${PM_PORT:-80}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - pm-client
+      - pm-server
+    restart: unless-stopped
+    networks:
+      - pm-internal
+
+  # Angular SPA — compiled static files served by nginx:alpine
+  pm-client:
+    build:
+      context: ..
+      dockerfile: local-deploy/client/Dockerfile
+    restart: unless-stopped
+    networks:
+      - pm-internal
+
+  # Express API — compiled TypeScript running on node:alpine
+  pm-server:
+    build:
+      context: ..
+      dockerfile: local-deploy/server/Dockerfile
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-local-dev-secret-change-me}
+      - MONGO_CONNECTION_STRING=${MONGO_CONNECTION_STRING:-mongodb://pm-mongo:27017}
+      - MONGO_DATABASE_NAME=${MONGO_DATABASE_NAME:-project-management-db}
+    depends_on:
+      - pm-mongo
+    restart: unless-stopped
+    networks:
+      - pm-internal
+
+  # MongoDB — data persisted in a named volume
+  pm-mongo:
+    image: mongo:latest
+    restart: unless-stopped
+    volumes:
+      - pm-mongo-data:/data/db
+    networks:
+      - pm-internal
+
+networks:
+  pm-internal:
+    driver: bridge
+
+volumes:
+  pm-mongo-data:
+    driver: local

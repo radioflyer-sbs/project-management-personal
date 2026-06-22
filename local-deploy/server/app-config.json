@@ -1,0 +1,14 @@
+{
+  "serverConfig": {
+    "port": 1089,
+    "jwtSecret": "overridden-by-JWT_SECRET-env-var"
+  },
+  "mongo": {
+    "connectionString": "mongodb://pm-mongo:27017",
+    "databaseName": "project-management-db"
+  },
+  "corsAllowed": [
+    "http://localhost",
+    "http://localhost:80"
+  ]
+}
