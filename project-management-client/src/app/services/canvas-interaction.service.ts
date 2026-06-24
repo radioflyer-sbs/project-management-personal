@@ -44,18 +44,28 @@ export class CanvasInteractionService {
     /** Fires once on pointerup — handled by host to persist the final layout. */
     readonly resizeEnded$    = new Subject<DragResizeEvent>();
 
-    // --- Pan (middle mouse button drag) ---
+    // --- Pan (right mouse button drag) ---
     private isPanning = false;
     private panStart  = { x: 0, y: 0 };
+    private panOrigin = { x: 0, y: 0 };
+    /** Set true once a right-drag moves past the threshold; consumed by the host to suppress the context menu. */
+    private didPan = false;
 
     onCanvasMousedown(e: MouseEvent): void {
-        if (e.button !== 1) { return; }
+        if (e.button !== 2) { return; }
         e.preventDefault();
         this.isPanning = true;
-        this.panStart = { x: e.clientX, y: e.clientY };
+        this.didPan = false;
+        this.panOrigin = { x: e.clientX, y: e.clientY };
+        this.panStart  = { x: e.clientX, y: e.clientY };
 
         const onMove = (me: MouseEvent) => {
             if (!this.isPanning) { return; }
+            if (!this.didPan) {
+                const dx = me.clientX - this.panOrigin.x;
+                const dy = me.clientY - this.panOrigin.y;
+                if (Math.abs(dx) > 3 || Math.abs(dy) > 3) { this.didPan = true; }
+            }
             this.viewport.pan(me.clientX - this.panStart.x, me.clientY - this.panStart.y);
             this.panStart = { x: me.clientX, y: me.clientY };
         };
@@ -66,6 +76,17 @@ export class CanvasInteractionService {
         };
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup', onUp);
+    }
+
+    /**
+     * Returns whether the most recent right-button interaction was a pan-drag, then resets the flag.
+     * The host calls this in its contextmenu handler so a drag suppresses the menu while a plain
+     * right-click still opens it.
+     */
+    consumeDidPan(): boolean {
+        const didPan = this.didPan;
+        this.didPan = false;
+        return didPan;
     }
 
     onWheel(e: WheelEvent, canvasRect: DOMRect): void {

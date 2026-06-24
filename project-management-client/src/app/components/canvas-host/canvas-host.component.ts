@@ -421,7 +421,7 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
     }
 
     onCanvasMousedown(e: MouseEvent): void {
-        if (e.button === 1) { this.interaction.onCanvasMousedown(e); return; }
+        if (e.button === 2) { this.interaction.onCanvasMousedown(e); return; }
         if (e.button !== 0) { return; }
 
         const canvasAreaEl = this.canvasAreaRef.nativeElement;
@@ -521,6 +521,8 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
 
     onContextMenu(e: MouseEvent): void {
         e.preventDefault();
+        // A right-drag is a pan, not a context-menu request — swallow the menu that follows it.
+        if (this.interaction.consumeDidPan()) { return; }
         const rect = this.canvasAreaRef.nativeElement.getBoundingClientRect();
         const screenX = e.clientX - rect.left;
         const screenY = e.clientY - rect.top;
