@@ -14,6 +14,11 @@
         box-shadow: 0 0 0 2px var(--color-brand-primary), 0 4px 16px rgba(0,0,0,0.18);
     }
 
+    // While dragged, let pointer events pass to drop zones of cards beneath.
+    &--dragging {
+        pointer-events: none;
+    }
+
     &__header {
         background: var(--color-note-header-bg);
         display: flex;

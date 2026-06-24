@@ -15,6 +15,13 @@
         box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25), 0 4px 20px rgba(0,0,0,0.12);
     }
 
+    // While dragged, force the whole card (including its interactive title bar) to pass
+    // pointer events through to the drop zones of cards beneath it.
+    &--dragging {
+        pointer-events: none;
+        * { pointer-events: none; }
+    }
+
     &__title-bar {
         display: flex;
         align-items: center;

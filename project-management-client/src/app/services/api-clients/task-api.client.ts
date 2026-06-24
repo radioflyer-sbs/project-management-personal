@@ -55,6 +55,11 @@ export class TaskApiClient extends ApiClientBase {
         return this.http.delete<void>(`${this.apiBaseUrl}/tasks/${id}`, this.buildOptions().build());
     }
 
+    /** Moves the task to a new parent task, or to the project root when newParentTaskId is null. */
+    reparent(id: string, newParentTaskId: string | null): Observable<Task> {
+        return this.http.put<Task>(`${this.apiBaseUrl}/tasks/${id}/reparent`, { newParentTaskId }, this.buildOptions().build());
+    }
+
     getCounts(taskIds: string[]): Observable<Record<string, TaskCounts>> {
         return this.http.post<Record<string, TaskCounts>>(
             `${this.apiBaseUrl}/tasks/counts-for-ids`,

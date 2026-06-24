@@ -63,5 +63,5 @@ Whenever a session changes the data model, adds new concepts, alters UI behaviou
 See `project-management-mcp/CLAUDE.md` for the full guidance.
 
 ## Standards reference
-See `C:\Users\rolso\.claude\skills\mean-stack-project-setup\references\project-standards.md`
+See `project-standards.md`
 for the full coding standards that govern both projects.

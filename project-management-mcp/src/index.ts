@@ -318,6 +318,30 @@ All move/resize tools emit real-time Socket.IO events so the browser updates imm
 
 ---
 
+## Workflow: move an item to a different workspace (reparent)
+
+A *workspace* is the set of items sharing one \`parentTaskId\` (or no parent — the project
+root). \`reparent_item\` changes which task owns an item, moving it out of its current
+workspace and into another. The item keeps its \`layout\`, so it lands at the same
+coordinates in the destination.
+
+- \`reparent_item(type, id, newParentTaskId)\` — make the item a child of that task.
+- \`reparent_item(type, id, null)\` — move the item to the project root.
+- Types: \`"task"\`, \`"note"\`, \`"group"\`, \`"dashboard"\`.
+
+**Two common shapes (mirroring the UI):**
+- **Promote** (move up one level, "out of the current workspace"): pass the *current parent's*
+  \`parentTaskId\`, or \`null\` when the current parent is itself a root task.
+- **Make child** (drop onto another task): pass the target task's \`_id\`.
+
+**Specifics:**
+- Tasks carry their whole subtree; descendant \`ancestorTaskIds\` are rewritten server-side.
+  Moving a task into itself or its own subtree is rejected (400).
+- Groups carry their member tasks (and subtrees), keeping them grouped.
+- Notes and dashboards have no descendants.
+
+---
+
 ## Workflow: find a dashboard and inspect its metrics
 
 1. \`list_dashboards({ projectId })\` — get all dashboards; note the \`_id\` and \`key\` of the one you want.

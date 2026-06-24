@@ -35,6 +35,9 @@ export class GroupCardComponent extends ComponentBase implements OnInit, OnChang
     editingTitle  = false;
     localTitle    = '';
 
+    /** True while this group is being dragged — lets pointer events fall through to drop zones beneath. */
+    amBeingDragged = false;
+
     ngOnInit(): void {
         this.zone.runOutsideAngular(() => {
             this.interaction.moveDragging$.pipe(takeUntil(this.ngDestroy$)).subscribe(e => {
@@ -64,6 +67,10 @@ export class GroupCardComponent extends ComponentBase implements OnInit, OnChang
             if ((e.id as any) !== (this.group._id as any)) { return; }
             this.localLayout = e.layout;
             this.applyLayoutDirect(e.layout);
+        });
+
+        this.interaction.dragState$.pipe(takeUntil(this.ngDestroy$)).subscribe(s => {
+            this.amBeingDragged = s.active && s.draggedIds.includes(this.group._id as string);
         });
     }
 

@@ -1,9 +1,10 @@
 <div
     class="task-card"
-    [ngClass]="[urgencyClass, selected ? 'task-card--selected' : '']"
+    [ngClass]="[urgencyClass, selected ? 'task-card--selected' : '', amBeingDragged ? 'task-card--dragging' : '']"
     [ngStyle]="cardStyle"
     (mousedown)="onMousedown($event)"
     (click)="onClick($event)"
+    (contextmenu)="onContextMenu($event)"
 >
     <div class="task-card__header">
         @if (task.isComplete) {
@@ -129,5 +130,20 @@
             class="resize-handle resize-handle--{{ handle }}"
             (mousedown)="onResizeMousedown($event, handle)"
         ></div>
+    }
+
+    <!-- Drop zone — appears on other cards while an item is being dragged; release here to reparent -->
+    @if (showDropZone) {
+        <div class="task-card__drop-overlay">
+            <div
+                class="task-card__drop-zone"
+                [class.task-card__drop-zone--hover]="dropHovered"
+                (pointerenter)="onDropZoneEnter()"
+                (pointerleave)="onDropZoneLeave()"
+            >
+                <i class="pi pi-sign-in"></i>
+                <span>Make child</span>
+            </div>
+        </div>
     }
 </div>

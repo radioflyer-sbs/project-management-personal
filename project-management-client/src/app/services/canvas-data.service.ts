@@ -293,6 +293,28 @@ export class CanvasDataService implements OnDestroy {
         this.notes$.next(this.notes$.getValue().filter(n => n._id !== noteId));
     }
 
+    /**
+     * Reparents items under `newParentTaskId` (null = project root), preserving their layouts.
+     * Group members move with their group server-side, so callers pass only top-level items.
+     * Reloads the canvas afterward so the moved items drop off the current workspace view.
+     */
+    reparentItems(
+        items: Array<{ id: string; type: 'task' | 'note' | 'group' | 'dashboard' }>,
+        newParentTaskId: string | null,
+    ): Observable<void> {
+        if (items.length === 0) { return of(undefined); }
+        const calls: Observable<unknown>[] = items.map(it => {
+            switch (it.type) {
+                case 'task':      return this.taskApi.reparent(it.id, newParentTaskId);
+                case 'note':      return this.noteApi.reparent(it.id, newParentTaskId);
+                case 'group':     return this.groupApi.reparent(it.id, newParentTaskId);
+                case 'dashboard': return this.dashboardApi.reparent(it.id, newParentTaskId);
+                default:          return of(null);
+            }
+        });
+        return forkJoin(calls).pipe(tap(() => this.load()), map(() => undefined));
+    }
+
     saveViewState(hostId: string, isProject: boolean, viewState: CanvasViewState): void {
         if (isProject) {
             this.projectApi.update(hostId, { viewState }).subscribe();

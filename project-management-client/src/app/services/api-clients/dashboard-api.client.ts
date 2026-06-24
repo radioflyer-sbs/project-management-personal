@@ -71,4 +71,13 @@ export class DashboardApiClient extends ApiClientBase {
             this.buildOptions().build()
         );
     }
+
+    /** Moves the dashboard to a new parent task, or to the project root when newParentTaskId is null. */
+    reparent(id: string, newParentTaskId: string | null): Observable<Dashboard> {
+        return this.http.put<Dashboard>(
+            `${this.apiBaseUrl}/dashboards/${id}/reparent`,
+            { newParentTaskId },
+            this.buildOptions().build()
+        );
+    }
 }

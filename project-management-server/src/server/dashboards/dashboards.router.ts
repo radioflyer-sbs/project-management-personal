@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 import { DashboardDbService } from '../../database/dashboards/dashboard-db.service';
 import { DataDefinitionDbService } from '../../database/data-definitions/data-definition-db.service';
+import { ReparentService, ReparentError } from '../../database/reparent.service';
 import { DashboardWidget } from '../../model/shared-models/dashboard.model';
 
 const LayoutSchema = z.object({
@@ -62,11 +63,30 @@ async function validateWidgets(
     return { ok: true };
 }
 
+const ReparentSchema = z.object({
+    newParentTaskId: z.string().min(1).nullable(),
+});
+
 export function createDashboardRouter(
     dashboardDb: DashboardDbService,
     dataDefDb: DataDefinitionDbService,
+    reparent: ReparentService,
 ): Router {
     const router = Router();
+
+    // Moves a dashboard to a new parent task (or to the project root when newParentTaskId is null).
+    router.put('/:id/reparent', async (req: Request, res: Response) => {
+        const parse = ReparentSchema.safeParse(req.body);
+        if (!parse.success) { res.status(400).json({ message: 'Invalid body', errors: parse.error.issues }); return; }
+        try {
+            const newParent = parse.data.newParentTaskId ? new ObjectId(parse.data.newParentTaskId) : null;
+            const updated = await reparent.reparentDashboard(new ObjectId(String(req.params.id)), newParent);
+            res.json(updated);
+        } catch (err) {
+            if (err instanceof ReparentError) { res.status(err.status).json({ message: err.message }); return; }
+            res.status(500).json({ message: 'Failed to reparent dashboard' });
+        }
+    });
 
     router.get('/by-project/:projectId', async (req: Request, res: Response) => {
         try {

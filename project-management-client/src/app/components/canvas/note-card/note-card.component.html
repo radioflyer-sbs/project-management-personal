@@ -1,6 +1,7 @@
 <div
     class="note-card"
     [class.note-card--selected]="selected"
+    [class.note-card--dragging]="amBeingDragged"
     [ngStyle]="cardStyle"
     (mousedown)="onMousedown($event)"
     (click)="onClick($event)"

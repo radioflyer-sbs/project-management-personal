@@ -96,6 +96,7 @@
                             (completeChanged$)="onTaskCompleteChanged(task, $event)"
                             (childCompletionChanged$)="onProjectedChildCompletionChanged(task, $event)"
                             (dragStarted$)="onTaskDragStarted(task, $event)"
+                            (contextMenu$)="onTaskContextMenu(task, $event)"
                         />
                     }
                     @for (note of notes; track note._id) {
@@ -131,6 +132,16 @@
                 [y]="contextMenuY"
                 (itemClicked$)="onContextMenuAction($event)"
                 (dismissed$)="contextMenuVisible = false"
+            />
+
+            <!-- Per-card context menu (Promote, etc.) -->
+            <app-canvas-context-menu
+                [items]="cardMenuItems"
+                [visible]="cardMenuVisible"
+                [x]="cardMenuX"
+                [y]="cardMenuY"
+                (itemClicked$)="onCardMenuAction($event)"
+                (dismissed$)="cardMenuVisible = false"
             />
         </div>
 

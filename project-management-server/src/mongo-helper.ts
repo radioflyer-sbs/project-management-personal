@@ -94,6 +94,45 @@ export class MongoHelper {
         return item as unknown as T & { _id: ObjectId };
     }
 
+    /**
+     * Rewrites the ancestor chain of every document whose `ancestorTaskIds` contains
+     * `anchorId`, replacing the portion up to and including `anchorId` with
+     * `[...newAncestors, anchorId]` and leaving the tail (anchor's own descendants
+     * below the anchor) intact. Used when a task is reparented: each descendant's
+     * stored ancestor chain must reflect the anchor's new position in the tree.
+     * Runs as a single aggregation-pipeline update per collection — no read-back.
+     */
+    async rewriteAncestorPrefix(
+        collectionName: string,
+        anchorId: ObjectId,
+        newAncestors: ObjectId[],
+    ): Promise<void> {
+        const col = this.getCollection(collectionName);
+        await col.updateMany(
+            { ancestorTaskIds: anchorId } as any,
+            [
+                {
+                    $set: {
+                        ancestorTaskIds: {
+                            $concatArrays: [
+                                newAncestors,
+                                [anchorId],
+                                {
+                                    $slice: [
+                                        '$ancestorTaskIds',
+                                        { $add: [{ $indexOfArray: ['$ancestorTaskIds', anchorId] }, 1] },
+                                        { $size: '$ancestorTaskIds' },
+                                    ],
+                                },
+                            ],
+                        },
+                        updatedAt: new Date(),
+                    },
+                },
+            ] as any,
+        );
+    }
+
     /** Updates matching documents. */
     async updateDataItems<T extends Document>(
         collectionName: string,

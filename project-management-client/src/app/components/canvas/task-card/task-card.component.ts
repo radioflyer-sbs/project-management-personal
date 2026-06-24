@@ -34,6 +34,7 @@ export class TaskCardComponent extends ComponentBase implements OnInit, OnChange
     @Output() childCompletionChanged$ = new EventEmitter<{ childId: string; isComplete: boolean }>();
     @Output() layoutChanged$          = new EventEmitter<{ task: Task; layout: Layout }>();
     @Output() dragStarted$            = new EventEmitter<PointerEvent>();
+    @Output() contextMenu$            = new EventEmitter<MouseEvent>();
 
     @ViewChild('titleInput')       private titleInputRef?: ElementRef<HTMLInputElement>;
     @ViewChild('descriptionInput') private descriptionInputRef?: ElementRef<HTMLTextAreaElement>;
@@ -44,6 +45,13 @@ export class TaskCardComponent extends ComponentBase implements OnInit, OnChange
 
     localLayout!: Layout;
     private isDragging = false;
+
+    /** True while this card is one of the items being dragged (drop zone hidden, pointer-events off). */
+    amBeingDragged = false;
+    /** True while another item is being dragged — reveals this card's "make child" drop zone. */
+    showDropZone = false;
+    /** True while the pointer is over this card's drop zone. */
+    dropHovered = false;
 
     // Inline edit state
     editingTitle       = false;
@@ -97,6 +105,13 @@ export class TaskCardComponent extends ComponentBase implements OnInit, OnChange
             this.isDragging = false;
             this.localLayout = e.layout;
             this.applyLayoutDirect(e.layout);
+        });
+
+        // Drop-zone visibility tracks the global drag state (emitted inside the Angular zone).
+        this.interaction.dragState$.pipe(takeUntil(this.ngDestroy$)).subscribe(s => {
+            this.amBeingDragged = s.active && s.draggedIds.includes(this.task._id as string);
+            this.showDropZone   = s.active && !this.amBeingDragged;
+            if (!s.active) { this.dropHovered = false; }
         });
     }
 
@@ -220,6 +235,24 @@ export class TaskCardComponent extends ComponentBase implements OnInit, OnChange
 
     onClick(e: MouseEvent): void {
         e.stopPropagation();
+    }
+
+    onContextMenu(e: MouseEvent): void {
+        e.preventDefault();
+        e.stopPropagation();
+        this.contextMenu$.emit(e);
+    }
+
+    // --- Drop zone (drag another item onto this card to make it a child) ---
+
+    onDropZoneEnter(): void {
+        this.dropHovered = true;
+        this.interaction.setDropTarget(this.task._id as string);
+    }
+
+    onDropZoneLeave(): void {
+        this.dropHovered = false;
+        this.interaction.clearDropTarget(this.task._id as string);
     }
 
     onDrillClick(e: MouseEvent): void {

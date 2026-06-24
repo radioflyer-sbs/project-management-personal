@@ -5,6 +5,7 @@ import { TaskDbService } from '../../database/tasks/task-db.service';
 import { NoteDbService } from '../../database/notes/note-db.service';
 import { CascadeDeleteService } from '../../database/cascade-delete.service';
 import { ProjectionOrderService } from '../../database/projection-order.service';
+import { ReparentService, ReparentError } from '../../database/reparent.service';
 import { TaskUrgency } from '../../model/shared-models/task-urgency.enum';
 import { TaskCounts } from '../../model/shared-models/task-counts.model';
 
@@ -28,6 +29,10 @@ const CreateTaskSchema = z.object({
     layout:          LayoutSchema,
 });
 
+const ReparentSchema = z.object({
+    newParentTaskId: z.string().min(1).nullable(),
+});
+
 const UpdateTaskSchema = z.object({
     title:           z.string().min(1).optional(),
     description:     z.string().optional(),
@@ -45,8 +50,24 @@ export function createTaskRouter(
     cascadeDelete: CascadeDeleteService,
     noteDb: NoteDbService,
     projectionOrder: ProjectionOrderService,
+    reparent: ReparentService,
 ): Router {
     const router = Router();
+
+    // Moves a task to a new parent task (or to the project root when newParentTaskId is null),
+    // carrying its subtree and keeping its layout. See ReparentService.
+    router.put('/:id/reparent', async (req: Request, res: Response) => {
+        const parse = ReparentSchema.safeParse(req.body);
+        if (!parse.success) { res.status(400).json({ message: 'Invalid body', errors: parse.error.issues }); return; }
+        try {
+            const newParent = parse.data.newParentTaskId ? new ObjectId(parse.data.newParentTaskId) : null;
+            const updated = await reparent.reparentTask(new ObjectId(String(req.params.id)), newParent);
+            res.json(updated);
+        } catch (err) {
+            if (err instanceof ReparentError) { res.status(err.status).json({ message: err.message }); return; }
+            res.status(500).json({ message: 'Failed to reparent task' });
+        }
+    });
 
     router.post('/counts-for-ids', async (req: Request, res: Response) => {
         const parse = z.object({ taskIds: z.array(z.string()) }).safeParse(req.body);

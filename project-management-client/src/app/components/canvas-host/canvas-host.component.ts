@@ -10,6 +10,7 @@ import { TextareaModule } from 'primeng/textarea';
 import { TooltipModule } from 'primeng/tooltip';
 import { FormsModule } from '@angular/forms';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { ConfirmationService } from 'primeng/api';
 import { ComponentBase } from '../component-base/component-base.component';
 import { ViewportService } from '../../services/viewport.service';
 import { CanvasDataService } from '../../services/canvas-data.service';
@@ -70,6 +71,7 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
     private readonly noteApi       = inject(NoteApiClient);
     private readonly dashboardApi  = inject(DashboardApiClient);
     private readonly appStateApi   = inject(AppStateApiClient);
+    private readonly confirmation  = inject(ConfirmationService);
     private readonly zone          = inject(NgZone);
 
     tasks:      Task[]      = [];
@@ -99,6 +101,12 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
     contextMenuY = 0;
     contextMenuCanvasX = 0;
     contextMenuCanvasY = 0;
+
+    // Per-card (task) context menu — currently hosts the "Promote" action.
+    cardMenuVisible = false;
+    cardMenuX = 0;
+    cardMenuY = 0;
+    cardMenuItems: ContextMenuItem[] = [];
 
     private shiftHeld = false;
 
@@ -207,6 +215,12 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
                 );
                 this.canvasData.updateNoteLayout(event.id, event.layout);
             }
+        });
+
+        // A drag released over a task's drop zone — confirm, then reparent the dragged items
+        // under that task (their layouts are preserved). Fired outside the Angular zone.
+        this.interaction.reparentDrop$.pipe(takeUntil(this.ngDestroy$)).subscribe(({ targetTaskId, draggedIds }) => {
+            this.zone.run(() => this.handleReparentDrop(targetTaskId, draggedIds));
         });
 
         this.initForCurrentUrl();
@@ -769,6 +783,98 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
             const current = this.groups.find(g => (g._id as any) === (group._id as any)) ?? group;
             this.interaction.startMoveGroup(e, current._id as string, current.layout, this.getGroupContainedItems(current));
         }
+    }
+
+    // --- Reparent (drop-to-child) & Promote ---
+
+    /** Resolves a list of canvas item ids to a top-level reparent set, dropping tasks that
+     *  are members of a group already in the set (the group carries them server-side). */
+    private buildReparentSet(ids: string[]): Array<{ id: string; type: 'task' | 'note' | 'group' | 'dashboard' }> {
+        const idSet = new Set(ids);
+        const selectedGroupIds = new Set(
+            this.groups.filter(g => idSet.has(g._id as string)).map(g => g._id as string)
+        );
+        const result: Array<{ id: string; type: 'task' | 'note' | 'group' | 'dashboard' }> = [];
+        for (const id of ids) {
+            if (this.groups.some(g => (g._id as string) === id)) { result.push({ id, type: 'group' }); continue; }
+            const task = this.tasks.find(t => (t._id as string) === id);
+            if (task) {
+                const gid = task.groupId;
+                if (gid && selectedGroupIds.has(gid)) { continue; }
+                result.push({ id, type: 'task' });
+                continue;
+            }
+            if (this.notes.some(n => (n._id as string) === id)) { result.push({ id, type: 'note' }); continue; }
+            if (this.dashboards.some(d => (d._id as string) === id)) { result.push({ id, type: 'dashboard' }); continue; }
+        }
+        return result;
+    }
+
+    /** Human-readable summary of a reparent set, e.g. "2 tasks, 1 note". */
+    private describeSet(set: Array<{ type: string }>): string {
+        const counts: Record<string, number> = {};
+        for (const s of set) { counts[s.type] = (counts[s.type] ?? 0) + 1; }
+        const parts: string[] = [];
+        for (const type of ['task', 'note', 'group', 'dashboard']) {
+            const n = counts[type];
+            if (n) { parts.push(`${n} ${type}${n !== 1 ? 's' : ''}`); }
+        }
+        return parts.join(', ') || 'item';
+    }
+
+    private handleReparentDrop(targetTaskId: string, draggedIds: string[]): void {
+        const set = this.buildReparentSet(draggedIds);
+        if (set.length === 0) { return; }
+        const target = this.tasks.find(t => (t._id as string) === targetTaskId);
+        const targetTitle = target?.title ?? 'task';
+        this.confirmation.confirm({
+            header:  'Move Items',
+            message: `Move ${this.describeSet(set)} to be ${set.length > 1 ? 'children' : 'a child'} of "${targetTitle}"? Their positions are kept.`,
+            icon:    'pi pi-sign-in',
+            accept:  () => {
+                this.canvasData.reparentItems(set, targetTaskId).subscribe(() => this.selection.clear());
+            },
+            // Reload so any item left at its dropped position (e.g. a dashboard) snaps back.
+            reject:  () => this.canvasData.load(),
+        });
+    }
+
+    onTaskContextMenu(task: Task, e: MouseEvent): void {
+        this.contextMenuVisible = false;
+        // Right-click selects the task unless it's already part of a multi-selection.
+        if (!this.selection.isSelected(task._id as string)) {
+            this.selection.select({ type: 'task', item: task });
+        }
+        // Promote moves items to the parent's parent — only meaningful inside a task workspace.
+        if (!this.hostTask) { this.cardMenuVisible = false; return; }
+        const count = this.selection.selectedItems.length;
+        this.cardMenuItems = [
+            { label: count > 1 ? `Promote ${count} items up one level` : 'Promote up one level', icon: 'pi-arrow-up', action: 'promote' },
+        ];
+        this.cardMenuX = e.clientX;
+        this.cardMenuY = e.clientY;
+        this.cardMenuVisible = true;
+    }
+
+    onCardMenuAction(action: string): void {
+        this.cardMenuVisible = false;
+        if (action === 'promote') { this.promoteSelected(); }
+    }
+
+    private promoteSelected(): void {
+        if (!this.hostTask) { return; }
+        const newParentTaskId = this.hostTask.parentTaskId ? (this.hostTask.parentTaskId as unknown as string) : null;
+        const set = this.buildReparentSet(this.selection.selectedItems.map(s => s.item._id as string));
+        if (set.length === 0) { return; }
+        const destination = newParentTaskId ? 'the parent task' : 'the project root';
+        this.confirmation.confirm({
+            header:  'Promote Items',
+            message: `Promote ${this.describeSet(set)} out of "${this.hostTask.title}" to ${destination}? Their positions are kept.`,
+            icon:    'pi pi-arrow-up',
+            accept:  () => {
+                this.canvasData.reparentItems(set, newParentTaskId).subscribe(() => this.selection.clear());
+            },
+        });
     }
 
     goBack(): void { this.navigation.navigateToParent(); }

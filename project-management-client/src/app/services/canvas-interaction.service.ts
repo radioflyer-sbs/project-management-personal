@@ -44,6 +44,53 @@ export class CanvasInteractionService {
     /** Fires once on pointerup — handled by host to persist the final layout. */
     readonly resizeEnded$    = new Subject<DragResizeEvent>();
 
+    /**
+     * Broadcasts the active/idle state of a move drag plus the ids being dragged.
+     * Task cards use it to reveal their "drop here to make child" zone (only on cards
+     * that aren't themselves being dragged). Emitted inside the Angular zone so the
+     * cards' template bindings update.
+     */
+    readonly dragState$ = new Subject<{ active: boolean; draggedIds: string[] }>();
+    /**
+     * Fires once on pointerup when a drag was released over a task's drop zone, instead
+     * of the usual moveEnded$. The host confirms with the user and reparents the dragged
+     * items under the target task (their layouts are preserved).
+     */
+    readonly reparentDrop$ = new Subject<{ targetTaskId: string; draggedIds: string[] }>();
+
+    /** Id of the task whose drop zone the pointer is currently over, or null. */
+    private dropTargetTaskId: string | null = null;
+
+    /** Called by a task card's drop zone on pointer enter. */
+    setDropTarget(taskId: string): void { this.dropTargetTaskId = taskId; }
+    /** Called by a task card's drop zone on pointer leave (only clears if it still owns the target). */
+    clearDropTarget(taskId: string): void {
+        if (this.dropTargetTaskId === taskId) { this.dropTargetTaskId = null; }
+    }
+
+    /**
+     * Closes out a move drag. If the pointer was released over a valid drop target (a task
+     * not among the dragged items), emits reparentDrop$ and returns true so the caller skips
+     * the normal moveEnded$ layout persistence. Otherwise returns false.
+     */
+    private finishDrag(draggedIds: string[], hasMoved: boolean): boolean {
+        const target = this.dropTargetTaskId;
+        this.dropTargetTaskId = null;
+        this.zone.run(() => this.dragState$.next({ active: false, draggedIds }));
+        if (hasMoved && target && !draggedIds.includes(target)) {
+            // Snap every dragged card back to its stored layout (hasMoved:false → cards reset
+            // and clear their dragging flag; the host ignores these). The reparent then runs
+            // with the items' original positions intact.
+            const resetLayout: Layout = { x: 0, y: 0, width: 0, height: 0, zIndex: 0 };
+            draggedIds.forEach(did => this.moveEnded$.next({
+                id: did, isTask: true, itemType: 'task', fromGroupDrag: false, layout: resetLayout, hasMoved: false,
+            }));
+            this.reparentDrop$.next({ targetTaskId: target, draggedIds });
+            return true;
+        }
+        return false;
+    }
+
     // --- Pan (right mouse button drag) ---
     private isPanning = false;
     private panStart  = { x: 0, y: 0 };
@@ -112,12 +159,16 @@ export class CanvasInteractionService {
         const startY = e.clientY;
         let hasMoved = false;
         const itemType: DragItemType = isTask ? 'task' : 'note';
+        const draggedIds = [id];
 
         const onMove = (me: PointerEvent) => {
             if (!hasMoved) {
                 const dx = me.clientX - startX;
                 const dy = me.clientY - startY;
-                if (Math.sqrt(dx * dx + dy * dy) >= MIN_DRAG_PX) { hasMoved = true; }
+                if (Math.sqrt(dx * dx + dy * dy) >= MIN_DRAG_PX) {
+                    hasMoved = true;
+                    this.zone.run(() => this.dragState$.next({ active: true, draggedIds }));
+                }
             }
             const dx = (me.clientX - lastX) / zoom;
             const dy = (me.clientY - lastY) / zoom;
@@ -130,6 +181,7 @@ export class CanvasInteractionService {
         const onUp = () => {
             document.removeEventListener('pointermove', onMove);
             document.removeEventListener('pointerup', onUp);
+            if (this.finishDrag(draggedIds, hasMoved)) { return; }
             this.moveEnded$.next({ id, isTask, itemType, fromGroupDrag: false, layout, hasMoved });
         };
 
@@ -153,12 +205,16 @@ export class CanvasInteractionService {
         const startX = e.clientX;
         const startY = e.clientY;
         let hasMoved = false;
+        const draggedIds = [id, ...containedItems.map(i => i.id)];
 
         const onMove = (me: PointerEvent) => {
             if (!hasMoved) {
                 const dx = me.clientX - startX;
                 const dy = me.clientY - startY;
-                if (Math.sqrt(dx * dx + dy * dy) >= MIN_DRAG_PX) { hasMoved = true; }
+                if (Math.sqrt(dx * dx + dy * dy) >= MIN_DRAG_PX) {
+                    hasMoved = true;
+                    this.zone.run(() => this.dragState$.next({ active: true, draggedIds }));
+                }
             }
             const dx = (me.clientX - lastX) / zoom;
             const dy = (me.clientY - lastY) / zoom;
@@ -184,6 +240,7 @@ export class CanvasInteractionService {
         const onUp = () => {
             document.removeEventListener('pointermove', onMove);
             document.removeEventListener('pointerup', onUp);
+            if (this.finishDrag(draggedIds, hasMoved)) { return; }
             this.moveEnded$.next({ id, isTask: false, itemType: 'group', fromGroupDrag: false, layout, hasMoved });
             items.forEach(item =>
                 this.moveEnded$.next({
@@ -221,12 +278,19 @@ export class CanvasInteractionService {
         const startX = e.clientX;
         const startY = e.clientY;
         let hasMoved = false;
+        const draggedIds = [
+            ...independentItems.map(i => i.id),
+            ...movingGroups.flatMap(g => [g.id, ...g.containedItems.map(ci => ci.id)]),
+        ];
 
         const onMove = (me: PointerEvent) => {
             if (!hasMoved) {
                 const dx = me.clientX - startX;
                 const dy = me.clientY - startY;
-                if (Math.sqrt(dx * dx + dy * dy) >= MIN_DRAG_PX) { hasMoved = true; }
+                if (Math.sqrt(dx * dx + dy * dy) >= MIN_DRAG_PX) {
+                    hasMoved = true;
+                    this.zone.run(() => this.dragState$.next({ active: true, draggedIds }));
+                }
             }
             const dx = (me.clientX - lastX) / zoom;
             const dy = (me.clientY - lastY) / zoom;
@@ -261,6 +325,8 @@ export class CanvasInteractionService {
         const onUp = () => {
             document.removeEventListener('pointermove', onMove);
             document.removeEventListener('pointerup',  onUp);
+
+            if (this.finishDrag(draggedIds, hasMoved)) { return; }
 
             items.forEach(i => this.moveEnded$.next({
                 id: i.id, isTask: i.isTask, itemType: i.isTask ? 'task' : 'note',

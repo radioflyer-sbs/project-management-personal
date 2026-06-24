@@ -35,6 +35,9 @@ export class NoteCardComponent extends ComponentBase implements OnInit, OnChange
     localLayout!: Layout;
     private isDragging = false;
 
+    /** True while this note is being dragged — lets pointer events fall through to drop zones beneath. */
+    amBeingDragged = false;
+
     editingTitle   = false;
     editingDetails = false;
     localTitle     = '';
@@ -73,6 +76,10 @@ export class NoteCardComponent extends ComponentBase implements OnInit, OnChange
             this.isDragging = false;
             this.localLayout = e.layout;
             this.applyLayoutDirect(e.layout);
+        });
+
+        this.interaction.dragState$.pipe(takeUntil(this.ngDestroy$)).subscribe(s => {
+            this.amBeingDragged = s.active && s.draggedIds.includes(this.note._id as string);
         });
     }
 

@@ -76,6 +76,24 @@ export function registerMutationTools(server: McpServer): void {
     );
 
     server.tool(
+        'reparent_item',
+        'Move an item to a different workspace by changing its owning parent task. '
+        + 'Pass newParentTaskId to make the item a child of that task, or null to move it to the project root. '
+        + 'The item keeps its layout (same coordinates in the destination). Tasks carry their whole subtree; '
+        + 'groups carry their member tasks. Use this for "promote" (move up to the parent\'s parent) and '
+        + '"make child" (move under another task) operations.',
+        {
+            type:            z.enum(['task', 'note', 'group', 'dashboard']),
+            id:              z.string().describe('MongoDB _id of the item to move'),
+            newParentTaskId: z.string().nullable().describe('MongoDB _id of the new parent task, or null for the project root'),
+        },
+        async ({ type, id, newParentTaskId }) => {
+            const updated = await api.put(`/${ITEM_APIS[type]}/${id}/reparent`, { newParentTaskId });
+            return { content: [{ type: 'text', text: JSON.stringify(updated) }] };
+        }
+    );
+
+    server.tool(
         'set_metrics',
         'Push multiple metric values in one call. Each update broadcasts over Socket.IO. Returns updated count and per-metric errors.',
         {

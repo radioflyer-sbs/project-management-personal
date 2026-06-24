@@ -42,4 +42,9 @@ export class NoteApiClient extends ApiClientBase {
     delete(id: string): Observable<void> {
         return this.http.delete<void>(`${this.apiBaseUrl}/notes/${id}`, this.buildOptions().build());
     }
+
+    /** Moves the note to a new parent task, or to the project root when newParentTaskId is null. */
+    reparent(id: string, newParentTaskId: string | null): Observable<Note> {
+        return this.http.put<Note>(`${this.apiBaseUrl}/notes/${id}/reparent`, { newParentTaskId }, this.buildOptions().build());
+    }
 }

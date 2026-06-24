@@ -9,6 +9,7 @@ import { ProjectDbService } from './database/projects/project-db.service';
 import { TaskDbService } from './database/tasks/task-db.service';
 import { NoteDbService } from './database/notes/note-db.service';
 import { CascadeDeleteService } from './database/cascade-delete.service';
+import { ReparentService } from './database/reparent.service';
 import { createProjectRouter } from './server/projects/projects.router';
 import { createTaskRouter } from './server/tasks/tasks.router';
 import { createNoteRouter } from './server/notes/notes.router';
@@ -76,6 +77,7 @@ export async function initializeExpressApp(container: Container, io: SocketIOSer
     const taskDb         = await container.getAsync<TaskDbService>(TOKENS.TaskDbService);
     const noteDb         = await container.getAsync<NoteDbService>(TOKENS.NoteDbService);
     const cascadeDelete  = await container.getAsync<CascadeDeleteService>(TOKENS.CascadeDeleteService);
+    const reparent       = await container.getAsync<ReparentService>(TOKENS.ReparentService);
     const llmModelDb     = await container.getAsync<LlmModelDbService>(TOKENS.LlmModelDbService);
     const groupDb         = await container.getAsync<GroupDbService>(TOKENS.GroupDbService);
     const projectionOrder = await container.getAsync<ProjectionOrderService>(TOKENS.ProjectionOrderService);
@@ -84,12 +86,12 @@ export async function initializeExpressApp(container: Container, io: SocketIOSer
     const appStateDb      = await container.getAsync<AppStateDbService>(TOKENS.AppStateDbService);
 
     app.use('/api/projects',         createProjectRouter(projectDb, cascadeDelete));
-    app.use('/api/tasks',            createTaskRouter(taskDb, cascadeDelete, noteDb, projectionOrder));
-    app.use('/api/notes',            createNoteRouter(noteDb, cascadeDelete));
-    app.use('/api/groups',           createGroupRouter(groupDb, taskDb, projectionOrder));
+    app.use('/api/tasks',            createTaskRouter(taskDb, cascadeDelete, noteDb, projectionOrder, reparent));
+    app.use('/api/notes',            createNoteRouter(noteDb, cascadeDelete, reparent));
+    app.use('/api/groups',           createGroupRouter(groupDb, taskDb, projectionOrder, reparent));
     app.use('/api/llm',              createLlmRouter(llmModelDb));
     app.use('/api/data-definitions', createDataDefinitionRouter(dataDefDb));
-    app.use('/api/dashboards',       createDashboardRouter(dashboardDb, dataDefDb));
+    app.use('/api/dashboards',       createDashboardRouter(dashboardDb, dataDefDb, reparent));
     app.use('/api/app-state',        createAppStateRouter(appStateDb));
 
     app.use((_req: Request, res: Response) => {

@@ -40,12 +40,13 @@ In your MCP config, point to the compiled entry point:
 | Data Definitions | `list_data_definitions`, `get_data_definition`, `create_data_definition`, `update_data_definition`, `set_data_value` |
 | Dashboards | `list_dashboards`, `get_dashboard`, `create_dashboard`, `update_dashboard`, `manage_widget` |
 | Canvas | `get_current_view`, `get_canvas_layout`, `set_canvas_layouts` |
-| Mutations | `delete_item`, `move_item`, `set_metrics` |
+| Mutations | `delete_item`, `move_item`, `reparent_item`, `set_metrics` |
 | API Docs | `get_api_info`, `get_api_endpoints` |
 
 ### Consolidated mutation tools
 `delete_item(type, id)` — deletes any item type (`task`, `note`, `group`, `dashboard`, `project`, `data-definition`).
 `move_item(type, id, x, y, width?, height?)` — moves/resizes any card; groups auto-reflow member tasks.
+`reparent_item(type, id, newParentTaskId)` — moves any card to another workspace by changing its owning parent task (`null` = project root); the card keeps its layout. Tasks carry their subtree; groups carry their members. Use for "promote" (parent's parent) and "make child" (drop onto a task).
 `set_metrics(projectId, metrics[])` — bulk metric value push; collapses N socket broadcasts into one call.
 `set_canvas_layouts([...])` — batch position/size update for any mix of card types.
 

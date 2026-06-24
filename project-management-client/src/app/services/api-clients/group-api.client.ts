@@ -42,4 +42,9 @@ export class GroupApiClient extends ApiClientBase {
     delete(id: string): Observable<void> {
         return this.http.delete<void>(`${this.apiBaseUrl}/groups/${id}`, this.buildOptions().build());
     }
+
+    /** Moves the group (and its member tasks) to a new parent task, or to the project root when null. */
+    reparent(id: string, newParentTaskId: string | null): Observable<Group> {
+        return this.http.put<Group>(`${this.apiBaseUrl}/groups/${id}/reparent`, { newParentTaskId }, this.buildOptions().build());
+    }
 }

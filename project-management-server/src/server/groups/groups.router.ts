@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { GroupDbService } from '../../database/groups/group-db.service';
 import { TaskDbService } from '../../database/tasks/task-db.service';
 import { ProjectionOrderService } from '../../database/projection-order.service';
+import { ReparentService, ReparentError } from '../../database/reparent.service';
 
 const LayoutSchema = z.object({
     x:      z.number(),
@@ -31,12 +32,32 @@ const UpdateGroupSchema = z.object({
     layoutWrap:      z.boolean().optional(),
 });
 
+const ReparentSchema = z.object({
+    newParentTaskId: z.string().min(1).nullable(),
+});
+
 export function createGroupRouter(
     groupDb: GroupDbService,
     taskDb: TaskDbService,
     projectionOrder: ProjectionOrderService,
+    reparent: ReparentService,
 ): Router {
     const router = Router();
+
+    // Moves a group (and its member tasks) to a new parent task (or to the project root
+    // when newParentTaskId is null).
+    router.put('/:id/reparent', async (req: Request, res: Response) => {
+        const parse = ReparentSchema.safeParse(req.body);
+        if (!parse.success) { res.status(400).json({ message: 'Invalid body', errors: parse.error.issues }); return; }
+        try {
+            const newParent = parse.data.newParentTaskId ? new ObjectId(parse.data.newParentTaskId) : null;
+            const updated = await reparent.reparentGroup(new ObjectId(String(req.params.id)), newParent);
+            res.json(updated);
+        } catch (err) {
+            if (err instanceof ReparentError) { res.status(err.status).json({ message: err.message }); return; }
+            res.status(500).json({ message: 'Failed to reparent group' });
+        }
+    });
 
     router.get('/by-project/:projectId', async (req: Request, res: Response) => {
         try {

@@ -116,6 +116,14 @@ const ENDPOINTS: Record<string, Endpoint[]> = {
             notes: 'PUT bodies containing only "layout" or "viewState" keys are filtered by the server and do NOT emit a socket data-changed event (drag/pan noise suppression). Add the header X-Source: mcp to bypass this filter when you intentionally want a canvas refresh.',
         },
         {
+            method: 'PUT', path: '/api/tasks/:id/reparent',
+            description: 'Move a task to a different workspace by changing its owning parent. The task keeps its layout (same coordinates in the destination) and its entire subtree moves with it; descendant ancestor chains are rewritten server-side.',
+            pathParams: { id: 'MongoDB _id of the task' },
+            body: { newParentTaskId: 'string|null (required) — _id of the new parent task, or null to move to the project root' },
+            response: 'Task (the moved task with updated parentTaskId/ancestorTaskIds)',
+            notes: 'Rejects (400) moving a task into itself or its own subtree. "Promote" = pass the current parent\'s parentTaskId (or null when the parent is a root task). "Make child" = pass the target task\'s _id. Clears group membership on the moved task.',
+        },
+        {
             method: 'DELETE', path: '/api/tasks/:id',
             description: 'Delete a task and all its descendants (sub-tasks, notes, groups, dashboards).',
             pathParams: { id: 'MongoDB _id of the task' },
@@ -166,6 +174,13 @@ const ENDPOINTS: Record<string, Endpoint[]> = {
                 backgroundColor: 'string (optional)',
                 layout: '{ x, y, width, height, zIndex } (optional)',
             },
+            response: 'Note',
+        },
+        {
+            method: 'PUT', path: '/api/notes/:id/reparent',
+            description: 'Move a note to a different workspace by changing its owning parent. The note keeps its layout.',
+            pathParams: { id: 'MongoDB _id of the note' },
+            body: { newParentTaskId: 'string|null (required) — _id of the new parent task, or null for the project root' },
             response: 'Note',
         },
         {
@@ -222,6 +237,13 @@ const ENDPOINTS: Record<string, Endpoint[]> = {
             },
             response: 'Group',
             notes: 'When itemIds is updated, the server does NOT automatically reflow member task positions. The caller must also PUT each member task\'s layout.',
+        },
+        {
+            method: 'PUT', path: '/api/groups/:id/reparent',
+            description: 'Move a group to a different workspace by changing its owning parent. The group keeps its layout and carries its member tasks (and their subtrees) along, keeping them grouped.',
+            pathParams: { id: 'MongoDB _id of the group' },
+            body: { newParentTaskId: 'string|null (required) — _id of the new parent task, or null for the project root' },
+            response: 'Group',
         },
         {
             method: 'DELETE', path: '/api/groups/:id',
@@ -356,6 +378,13 @@ const ENDPOINTS: Record<string, Endpoint[]> = {
                 layout: '{ x, y, width, height, zIndex } (optional)',
                 config: '{ widgets: Widget[] } (optional) — replaces the entire widget list',
             },
+            response: 'Dashboard',
+        },
+        {
+            method: 'PUT', path: '/api/dashboards/:id/reparent',
+            description: 'Move a dashboard to a different workspace by changing its owning parent. The dashboard keeps its layout.',
+            pathParams: { id: 'MongoDB _id of the dashboard' },
+            body: { newParentTaskId: 'string|null (required) — _id of the new parent task, or null for the project root' },
             response: 'Dashboard',
         },
         {
