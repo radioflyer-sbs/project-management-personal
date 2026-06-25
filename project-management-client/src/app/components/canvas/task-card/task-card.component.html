@@ -98,6 +98,36 @@
 
         <div class="task-card__status-divider"></div>
 
+        <!-- Due date + live countdown -->
+        <div class="task-card__due-wrap" (mousedown)="$event.stopPropagation()">
+            <button
+                class="task-card__due-btn"
+                [class.task-card__due-btn--set]="!!task.dueDate"
+                [title]="task.dueDate ? 'Change due date' : 'Set due date'"
+                (click)="toggleDueDatePicker($event)"
+            >
+                <i class="pi pi-calendar"></i>
+            </button>
+            @if (dueCountdown) {
+                <span class="task-card__due-count"
+                    [class.task-card__due-count--time]="dueCountdown.mode === 'time'"
+                    title="Time until due">
+                    {{ dueCountdown.text }}
+                </span>
+            }
+            @if (dueDatePickerOpen) {
+                <div class="task-card__due-popover">
+                    <p-datepicker [(ngModel)]="dueDateModel" [inline]="true" [showTime]="true" [showSeconds]="false" />
+                    <div class="task-card__due-actions">
+                        <button class="task-card__due-action" (click)="clearDueDate()">Clear</button>
+                        <button class="task-card__due-action task-card__due-action--primary" (click)="commitDueDate()">Set</button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="task-card__status-divider"></div>
+
         @if (task.parentTaskId) {
             <button
                 class="task-card__project-btn"

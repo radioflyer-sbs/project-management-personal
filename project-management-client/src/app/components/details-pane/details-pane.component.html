@@ -128,6 +128,19 @@
                     class="w-full"
                 />
             </div>
+            <div class="field">
+                <label>Due Date</label>
+                <p-datepicker
+                    [(ngModel)]="editDueDate"
+                    [showTime]="true"
+                    [showSeconds]="false"
+                    [showClear]="true"
+                    (ngModelChange)="onChange()"
+                    appendTo="body"
+                    styleClass="w-full"
+                    placeholder="No due date"
+                />
+            </div>
             <div class="field field--inline">
                 <p-checkbox [(ngModel)]="editIsComplete" [binary]="true" inputId="complete" (ngModelChange)="onChange()" />
                 <label for="complete">Completed</label>

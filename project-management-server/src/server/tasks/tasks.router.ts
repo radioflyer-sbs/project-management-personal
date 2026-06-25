@@ -25,6 +25,7 @@ const CreateTaskSchema = z.object({
     description:     z.string().default(''),
     urgency:         z.nativeEnum(TaskUrgency).default(TaskUrgency.Normal),
     isComplete:      z.boolean().default(false),
+    dueDate:         z.string().datetime().nullable().optional(),
     projectToParent: z.boolean().optional(),
     layout:          LayoutSchema,
 });
@@ -38,6 +39,7 @@ const UpdateTaskSchema = z.object({
     description:     z.string().optional(),
     urgency:         z.nativeEnum(TaskUrgency).optional(),
     isComplete:      z.boolean().optional(),
+    dueDate:         z.string().datetime().nullable().optional(),
     projectToParent: z.boolean().optional(),
     layout:          LayoutSchema.optional(),
     viewState:       z.object({ panX: z.number(), panY: z.number(), zoom: z.number() }).optional(),
@@ -142,11 +144,12 @@ export function createTaskRouter(
         const parse = CreateTaskSchema.safeParse(req.body);
         if (!parse.success) { res.status(400).json({ message: 'Invalid body', errors: parse.error.issues }); return; }
         try {
-            const { projectId, parentTaskId, ancestorTaskIds, ...rest } = parse.data;
+            const { projectId, parentTaskId, ancestorTaskIds, dueDate, ...rest } = parse.data;
             const task = await taskDb.create({
                 ...rest,
                 projectId:       new ObjectId(projectId),
                 ...(parentTaskId ? { parentTaskId: new ObjectId(parentTaskId) } : {}),
+                ...(dueDate ? { dueDate: new Date(dueDate) } : {}),
                 ancestorTaskIds: ancestorTaskIds.map(id => new ObjectId(id)),
             } as any);
             projectionOrder.scheduleRecompute(task.parentTaskId);
@@ -162,12 +165,14 @@ export function createTaskRouter(
         try {
             const existing = await taskDb.findById(new ObjectId(String(req.params.id)));
             if (!existing) { res.status(404).json({ message: 'Task not found' }); return; }
-            const { groupId, preGroupLayout, ...rest } = parse.data;
+            const { groupId, preGroupLayout, dueDate, ...rest } = parse.data;
             const merged: any = { ...existing, ...rest, _id: existing._id };
             if (groupId === null) { delete merged.groupId; delete merged.preGroupLayout; }
             else if (groupId !== undefined) { merged.groupId = groupId; }
             if (preGroupLayout === null) { delete merged.preGroupLayout; }
             else if (preGroupLayout !== undefined) { merged.preGroupLayout = preGroupLayout; }
+            if (dueDate === null) { delete merged.dueDate; }
+            else if (dueDate !== undefined) { merged.dueDate = new Date(dueDate); }
             const updated = await taskDb.update(merged);
             // Layout / grouping / urgency are the only inputs to reading order.
             if (parse.data.layout !== undefined || groupId !== undefined || parse.data.urgency !== undefined) {

@@ -47,7 +47,10 @@ export class TaskApiClient extends ApiClientBase {
         return this.http.post<Task>(`${this.apiBaseUrl}/tasks`, data, this.buildOptions().build());
     }
 
-    update(id: string, data: Partial<{ title: string; description: string; urgency: TaskUrgency; isComplete: boolean; projectToParent: boolean; layout: Layout; viewState: CanvasViewState; groupId: string | null; preGroupLayout: Layout | null }>): Observable<Task> {
+    // `dueDate`/`groupId`/`preGroupLayout` allow null here — this is the HTTP boundary, where a
+    // partial update must send an explicit value to clear a field (undefined is dropped by JSON).
+    // Keep null confined to this layer; the rest of the frontend uses undefined.
+    update(id: string, data: Partial<{ title: string; description: string; urgency: TaskUrgency; isComplete: boolean; dueDate: string | null; projectToParent: boolean; layout: Layout; viewState: CanvasViewState; groupId: string | null; preGroupLayout: Layout | null }>): Observable<Task> {
         return this.http.put<Task>(`${this.apiBaseUrl}/tasks/${id}`, data, this.buildOptions().build());
     }
 

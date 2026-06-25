@@ -318,6 +318,90 @@
         }
     }
 
+    // --- Due date ---
+
+    &__due-wrap {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        flex-shrink: 0;
+    }
+
+    &__due-btn {
+        appearance: none;
+        -webkit-appearance: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        border: none;
+        border-radius: 4px;
+        background: transparent;
+        color: var(--color-text-on-card);
+        opacity: 0.35;
+        cursor: pointer;
+        transition: background 0.12s, opacity 0.12s;
+
+        .pi { font-size: 10px; }
+
+        &:hover { background: rgba(0, 0, 0, 0.15); opacity: 0.75; }
+        &--set { opacity: 1; color: var(--color-brand-primary); }
+    }
+
+    &__due-count {
+        font-size: 0.68rem;
+        font-weight: 700;
+        line-height: 1;
+        color: var(--color-text-on-card);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+
+        // Same-day (HH:MM) reads as more urgent than a day count.
+        &--time { color: var(--color-urgency-urgent-border, #dd5a36); }
+    }
+
+    &__due-popover {
+        position: absolute;
+        bottom: calc(100% + 6px);
+        left: 0;
+        z-index: 100000;
+        background: var(--color-surface-card, #ffffff);
+        border: 1px solid rgba(0, 0, 0, 0.14);
+        border-radius: 6px;
+        box-shadow: 0 6px 22px rgba(0, 0, 0, 0.28);
+        padding: 6px;
+    }
+
+    &__due-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+        margin-top: 6px;
+    }
+
+    &__due-action {
+        appearance: none;
+        -webkit-appearance: none;
+        padding: 4px 12px;
+        border: 1px solid rgba(0, 0, 0, 0.18);
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.7);
+        color: var(--color-text-primary, #1a1a2e);
+        font-size: 0.72rem;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+
+        &--primary {
+            background: var(--color-brand-primary);
+            border-color: var(--color-brand-primary);
+            color: #ffffff;
+        }
+    }
+
     &__complete-btn {
         appearance: none;
         -webkit-appearance: none;

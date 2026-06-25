@@ -47,11 +47,12 @@ export function registerTaskTools(server: McpServer): void {
             description:     z.string().optional().describe('Markdown — links, bold, italic, lists, headings'),
             urgency:         UrgencyEnum.optional().default('normal'),
             isComplete:      z.boolean().optional().default(false),
+            dueDate:         z.string().datetime().optional().describe('ISO 8601 due date/time; drives the card countdown'),
             projectToParent: z.boolean().optional().describe('Show this task in its parent\'s projected-children list'),
             x:               z.number().optional().default(100),
             y:               z.number().optional().default(100),
         },
-        async ({ projectId, parentTaskId, ancestorTaskIds, title, description, urgency, isComplete, projectToParent, x, y }) => {
+        async ({ projectId, parentTaskId, ancestorTaskIds, title, description, urgency, isComplete, dueDate, projectToParent, x, y }) => {
             const task = await api.post('/tasks', {
                 projectId,
                 parentTaskId,
@@ -60,6 +61,7 @@ export function registerTaskTools(server: McpServer): void {
                 description: description ?? '',
                 urgency,
                 isComplete,
+                dueDate,
                 projectToParent,
                 layout: { x, y, width: 240, height: 140, zIndex: Date.now() },
             });
@@ -76,6 +78,7 @@ export function registerTaskTools(server: McpServer): void {
             description:     z.string().optional().describe('Markdown — links, bold, italic, lists, headings'),
             urgency:         UrgencyEnum.optional(),
             isComplete:      z.boolean().optional(),
+            dueDate:         z.string().datetime().nullable().optional().describe('ISO 8601 due date/time; null clears it'),
             projectToParent: z.boolean().optional(),
         },
         async ({ taskId, ...fields }) => {

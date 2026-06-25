@@ -43,6 +43,13 @@ src/
 - Components **never call HttpClient directly** — use domain services → API clients.
 - State lives in services, exposed as observables (`xxx$`). Components only subscribe.
 - `ObjectId` is imported from `'mongodb'` (resolves to `string` via ambient declaration in `src/types/mongodb.d.ts`).
+- **Prefer `undefined` over `null`.** Type optional fields as `T | undefined` (or `T?`) in models, component state, service signatures, and `EventEmitter` payloads. `null` is allowed only where unavoidable: (1) the HTTP request body, where a partial update must send an explicit value to clear a field because JSON drops `undefined` — keep this confined to the API-client layer with a comment; (2) a value a 3rd-party library hands us (e.g. PrimeNG `showClear` writes `null`) — coerce to `undefined` immediately at the binding (`value ?? undefined`).
+
+## Outstanding cleanup (null → undefined)
+
+The `undefined`-over-`null` rule above is not yet applied everywhere — handle these when touching the relevant code:
+- **Reparent** uses `newParentTaskId: string | null` across the API clients, `CanvasDataService`, `CanvasInteractionService`, and `CanvasHostComponent` (`null` = project root). Move the domain to `undefined` (root = `undefined`) and convert to `null` only at the API boundary.
+- Pre-existing services still expose `null` (e.g. `SelectionService` `BehaviorSubject<… | null>`, `NavigationService` `projectId$`). Migrate opportunistically; not a dedicated sweep.
 
 ## Shared models rule
 `src/model/shared-models/` is an **identical copy** of the server's `src/model/shared-models/`.

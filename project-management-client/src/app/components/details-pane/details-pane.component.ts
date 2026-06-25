@@ -11,6 +11,7 @@ import { DropdownModule } from 'primeng/dropdown';
 import { CheckboxModule } from 'primeng/checkbox';
 import { ColorPickerModule } from 'primeng/colorpicker';
 import { InputNumberModule } from 'primeng/inputnumber';
+import { DatePickerModule } from 'primeng/datepicker';
 import { ComponentBase } from '../component-base/component-base.component';
 import { SelectionService, SelectedItem } from '../../services/selection.service';
 import { DetailsPaneService } from '../../services/details-pane.service';
@@ -33,7 +34,7 @@ import { TaskUrgency } from '../../../model/shared-models/task-urgency.enum';
         CommonModule, FormsModule,
         ButtonModule, InputTextModule, TextareaModule,
         SelectModule, DropdownModule, CheckboxModule, ColorPickerModule,
-        InputNumberModule,
+        InputNumberModule, DatePickerModule,
     ],
     templateUrl: './details-pane.component.html',
     styleUrl: './details-pane.component.scss',
@@ -61,6 +62,7 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
     editDetails          = '';
     editUrgency: TaskUrgency = TaskUrgency.Normal;
     editIsComplete       = false;
+    editDueDate: Date | undefined = undefined;
     editProjectToParent  = false;
     editBgColor          = '#ffffff';
 
@@ -152,6 +154,7 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
                 this.editDescription     = this.hostTask.description;
                 this.editUrgency         = this.hostTask.urgency;
                 this.editIsComplete      = this.hostTask.isComplete;
+                this.editDueDate         = this.hostTask.dueDate ? new Date(this.hostTask.dueDate) : undefined;
                 this.editProjectToParent = this.hostTask.projectToParent ?? false;
             } else if (this.hostProject) {
                 this.hostName        = this.hostProject.name;
@@ -162,6 +165,7 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
             this.editDescription     = sel.item.description;
             this.editUrgency         = sel.item.urgency;
             this.editIsComplete      = sel.item.isComplete;
+            this.editDueDate         = sel.item.dueDate ? new Date(sel.item.dueDate) : undefined;
             this.editProjectToParent = sel.item.projectToParent ?? false;
         } else if (sel.type === 'note') {
             this.editTitle   = sel.item.title;
@@ -277,6 +281,9 @@ export class DetailsPaneComponent extends ComponentBase implements OnInit {
             urgency:         this.editUrgency,
             isComplete:      this.editIsComplete,
             projectToParent: this.editProjectToParent,
+            // Coerce away the null PrimeNG's showClear writes; updateTask sends the wire-level
+            // null to clear. The domain stays on undefined.
+            dueDate:         this.editDueDate ?? undefined,
         };
         this.canvasData.updateTask(updated).subscribe(result => {
             if (this.selection?.type === 'task') {

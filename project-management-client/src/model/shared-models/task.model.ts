@@ -20,6 +20,8 @@ export interface Task extends DbEntity {
     description: string;
     urgency: TaskUrgency;
     isComplete: boolean;
+    /** Optional due date/time. Drives the countdown shown on the task card. */
+    dueDate?: Date;
     projectToParent?: boolean;
     layout: Layout;
     viewState?: CanvasViewState;

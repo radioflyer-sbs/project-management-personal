@@ -176,6 +176,21 @@ export class CanvasDataService implements OnDestroy {
         return this.tasks$.getValue().find(t => t._id === id);
     }
 
+    /** Sets (Date) or clears (undefined) a task's due date, preserving the locally-held projected children. */
+    updateTaskDueDate(taskId: string, dueDate: Date | undefined): Observable<Task> {
+        // null only at the wire: a partial update must send an explicit value to clear the field.
+        const iso = dueDate ? dueDate.toISOString() : null;
+        this.tasks$.next(this.tasks$.getValue().map(t =>
+            (t._id as any) === taskId ? { ...t, dueDate } : t));
+        return this.taskApi.update(taskId, { dueDate: iso }).pipe(
+            tap(result => {
+                const existing = this.tasks$.getValue().find(t => (t._id as any) === (result._id as any));
+                const merged = { ...result, projectedChildren: existing?.projectedChildren };
+                this.tasks$.next(this.tasks$.getValue().map(t => (t._id as any) === (result._id as any) ? merged : t));
+            })
+        );
+    }
+
     getNoteById(id: string): Note | undefined {
         return this.notes$.getValue().find(n => n._id === id);
     }
@@ -183,7 +198,9 @@ export class CanvasDataService implements OnDestroy {
     updateTask(task: Task): Observable<Task> {
         const id = task._id as any;
         this.tasks$.next(this.tasks$.getValue().map(t => (t._id as any) === id ? task : t));
-        return this.taskApi.update(task._id as string, task).pipe(
+        // dueDate is a Date on the model; the API takes an ISO string, or null at the wire to clear.
+        const payload = { ...task, dueDate: task.dueDate ? new Date(task.dueDate).toISOString() : null };
+        return this.taskApi.update(task._id as string, payload as any).pipe(
             tap(serverResult => {
                 const existing = this.tasks$.getValue().find(t => (t._id as any) === (serverResult._id as any));
                 const merged = { ...serverResult, projectedChildren: existing?.projectedChildren };

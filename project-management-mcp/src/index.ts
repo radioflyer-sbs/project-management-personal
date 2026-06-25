@@ -63,6 +63,7 @@ Fields:
 - \`urgency\` — drives card color (see palette below); one of:
   \`long-term-goal | low | normal | important | urgent | immediate\`
 - \`isComplete\` — completion toggle (purely per-task; completion never cascades to children)
+- \`dueDate\` — optional ISO 8601 due date/time. The card shows a live countdown: a day count (\`Nd\`) when due on a later date, or \`HH:MM\` when due today (or before 5am the next calendar day). Set \`null\` via update to clear.
 - \`layout\` — \`{ x, y, width, height, zIndex }\` position/size on its parent canvas
 - \`viewState\` — saved pan/zoom of this task's own (child) canvas
 - \`parentTaskId\` — omit to place the task directly on the project canvas

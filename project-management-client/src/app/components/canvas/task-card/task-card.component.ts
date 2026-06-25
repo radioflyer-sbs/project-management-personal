@@ -1,9 +1,12 @@
 import { Component, Input, Output, EventEmitter, HostListener, inject, OnChanges, OnInit, SimpleChanges, NgZone, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { DatePickerModule } from 'primeng/datepicker';
 import { takeUntil } from 'rxjs/operators';
 import { ComponentBase } from '../../component-base/component-base.component';
 import { CanvasInteractionService, ResizeHandle } from '../../../services/canvas-interaction.service';
+import { ClockService } from '../../../services/clock.service';
+import { formatDueCountdown, DueCountdown } from '../../../services/due-date.util';
 import { Task } from '../../../../model/shared-models/task.model';
 import { Layout } from '../../../../model/shared-models/layout.model';
 import { TaskCounts } from '../../../../model/shared-models/task-counts.model';
@@ -15,7 +18,7 @@ import { MarkdownEditorComponent } from '../../shared/markdown-editor/markdown-e
 @Component({
     selector: 'app-task-card',
     standalone: true,
-    imports: [CommonModule, FormsModule, TaskProjectedChildrenComponent, MarkdownViewComponent, MarkdownEditorComponent],
+    imports: [CommonModule, FormsModule, DatePickerModule, TaskProjectedChildrenComponent, MarkdownViewComponent, MarkdownEditorComponent],
     templateUrl: './task-card.component.html',
     styleUrl: './task-card.component.scss',
 })
@@ -37,12 +40,21 @@ export class TaskCardComponent extends ComponentBase implements OnInit, OnChange
     @Output() layoutChanged$          = new EventEmitter<{ task: Task; layout: Layout }>();
     @Output() dragStarted$            = new EventEmitter<PointerEvent>();
     @Output() contextMenu$            = new EventEmitter<MouseEvent>();
+    @Output() dueDateChanged$         = new EventEmitter<Date | undefined>();
 
     @ViewChild('titleInput')       private titleInputRef?: ElementRef<HTMLInputElement>;
 
     private readonly interaction = inject(CanvasInteractionService);
+    private readonly clock       = inject(ClockService);
     private readonly zone        = inject(NgZone);
     private readonly el          = inject(ElementRef<HTMLElement>);
+
+    /** Current time, refreshed by the shared clock; drives the live due-date countdown. */
+    private now = new Date();
+
+    // Due-date picker
+    dueDatePickerOpen = false;
+    dueDateModel: Date | undefined = undefined;
 
     localLayout!: Layout;
     private isDragging = false;
@@ -114,6 +126,13 @@ export class TaskCardComponent extends ComponentBase implements OnInit, OnChange
             this.showDropZone   = s.active && !this.amBeingDragged;
             if (!s.active) { this.dropHovered = false; }
         });
+
+        // Shared tick drives the live due-date countdown (runs in-zone → re-renders).
+        this.clock.now$.pipe(takeUntil(this.ngDestroy$)).subscribe(d => this.now = d);
+    }
+
+    get dueCountdown(): DueCountdown | null {
+        return this.task.dueDate ? formatDueCountdown(new Date(this.task.dueDate), this.now) : null;
     }
 
     private applyLayoutDirect(l: Layout): void {
@@ -192,9 +211,31 @@ export class TaskCardComponent extends ComponentBase implements OnInit, OnChange
 
     @HostListener('document:mousedown', ['$event'])
     onDocumentMousedown(e: MouseEvent): void {
-        if (this.dropdownOpen && !this.el.nativeElement.contains(e.target as Node)) {
-            this.dropdownOpen = false;
-        }
+        const outside = !this.el.nativeElement.contains(e.target as Node)
+            // The datepicker overlay panel is appended to <body>, outside the card element.
+            && !(e.target as HTMLElement)?.closest('.p-datepicker-panel, p-datepicker');
+        if (this.dropdownOpen && outside) { this.dropdownOpen = false; }
+        if (this.dueDatePickerOpen && outside) { this.dueDatePickerOpen = false; }
+    }
+
+    // --- Due date ---
+
+    toggleDueDatePicker(e: MouseEvent): void {
+        e.stopPropagation();
+        this.dropdownOpen = false;
+        this.dueDateModel = this.task.dueDate ? new Date(this.task.dueDate) : undefined;
+        this.dueDatePickerOpen = !this.dueDatePickerOpen;
+    }
+
+    commitDueDate(): void {
+        this.dueDatePickerOpen = false;
+        this.dueDateChanged$.emit(this.dueDateModel ?? undefined);
+    }
+
+    clearDueDate(): void {
+        this.dueDatePickerOpen = false;
+        this.dueDateModel = undefined;
+        this.dueDateChanged$.emit(undefined);
     }
 
     // --- Card interaction ---
@@ -206,7 +247,7 @@ export class TaskCardComponent extends ComponentBase implements OnInit, OnChange
             top:      `${l.y}px`,
             width:    `${l.width}px`,
             height:   `${l.height}px`,
-            zIndex:   this.dropdownOpen ? '99999' : `${l.zIndex}`,
+            zIndex:   (this.dropdownOpen || this.dueDatePickerOpen) ? '99999' : `${l.zIndex}`,
             opacity:  this.task.isComplete ? '0.55' : '1',
         };
     }

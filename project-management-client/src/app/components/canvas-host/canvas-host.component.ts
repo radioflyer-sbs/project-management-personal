@@ -693,6 +693,15 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
             });
     }
 
+    onTaskDueDateChanged(task: Task, dueDate: Date | undefined): void {
+        this.canvasData.updateTaskDueDate(task._id as string, dueDate)
+            .subscribe(result => {
+                if (this.selection.isSelected(result._id as string)) {
+                    this.selection.updateItem({ type: 'task', item: result });
+                }
+            });
+    }
+
     onProjectedChildCompletionChanged(parent: Task, e: { childId: string; isComplete: boolean }): void {
         this.canvasData.setProjectedChildCompletion(parent._id as string, e.childId, e.isComplete);
     }
