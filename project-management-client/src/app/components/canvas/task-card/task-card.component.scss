@@ -368,6 +368,7 @@
         bottom: calc(100% + 6px);
         left: 0;
         z-index: 100000;
+        min-width: 230px;
         background: var(--color-surface-card, #ffffff);
         border: 1px solid rgba(0, 0, 0, 0.14);
         border-radius: 6px;

@@ -117,7 +117,14 @@
             }
             @if (dueDatePickerOpen) {
                 <div class="task-card__due-popover">
-                    <p-datepicker [(ngModel)]="dueDateModel" [inline]="true" [showTime]="true" [showSeconds]="false" />
+                    <p-datepicker
+                        [(ngModel)]="dueDateModel"
+                        [showTime]="true"
+                        [showSeconds]="false"
+                        appendTo="body"
+                        [inputStyle]="{ width: '100%' }"
+                        placeholder="MM/DD/YYYY HH:MM"
+                    />
                     <div class="task-card__due-actions">
                         <button class="task-card__due-action" (click)="clearDueDate()">Clear</button>
                         <button class="task-card__due-action task-card__due-action--primary" (click)="commitDueDate()">Set</button>

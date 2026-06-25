@@ -47,7 +47,7 @@ export function registerTaskTools(server: McpServer): void {
             description:     z.string().optional().describe('Markdown — links, bold, italic, lists, headings'),
             urgency:         UrgencyEnum.optional().default('normal'),
             isComplete:      z.boolean().optional().default(false),
-            dueDate:         z.string().datetime().optional().describe('ISO 8601 due date/time; drives the card countdown'),
+            dueDate:         z.string().datetime().optional().describe('Task deadline as an ISO 8601 date/time WITH timezone, e.g. "2026-07-01T17:00:00Z". Shown as a live countdown on the card.'),
             projectToParent: z.boolean().optional().describe('Show this task in its parent\'s projected-children list'),
             x:               z.number().optional().default(100),
             y:               z.number().optional().default(100),
@@ -78,7 +78,7 @@ export function registerTaskTools(server: McpServer): void {
             description:     z.string().optional().describe('Markdown — links, bold, italic, lists, headings'),
             urgency:         UrgencyEnum.optional(),
             isComplete:      z.boolean().optional(),
-            dueDate:         z.string().datetime().nullable().optional().describe('ISO 8601 due date/time; null clears it'),
+            dueDate:         z.string().datetime().nullable().optional().describe('Task deadline as an ISO 8601 date/time WITH timezone, e.g. "2026-07-01T17:00:00Z". Pass null to clear it.'),
             projectToParent: z.boolean().optional(),
         },
         async ({ taskId, ...fields }) => {
