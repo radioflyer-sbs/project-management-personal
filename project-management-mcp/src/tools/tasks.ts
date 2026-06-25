@@ -44,7 +44,7 @@ export function registerTaskTools(server: McpServer): void {
             parentTaskId:    z.string().optional().describe('Parent task _id for a sub-canvas; omit for project canvas'),
             ancestorTaskIds: z.array(z.string()).optional().describe('Ordered chain of ancestor task ids (from root to parent)'),
             title:           z.string(),
-            description:     z.string().optional(),
+            description:     z.string().optional().describe('Markdown — links, bold, italic, lists, headings'),
             urgency:         UrgencyEnum.optional().default('normal'),
             isComplete:      z.boolean().optional().default(false),
             projectToParent: z.boolean().optional().describe('Show this task in its parent\'s projected-children list'),
@@ -73,7 +73,7 @@ export function registerTaskTools(server: McpServer): void {
         {
             taskId:          z.string(),
             title:           z.string().optional(),
-            description:     z.string().optional(),
+            description:     z.string().optional().describe('Markdown — links, bold, italic, lists, headings'),
             urgency:         UrgencyEnum.optional(),
             isComplete:      z.boolean().optional(),
             projectToParent: z.boolean().optional(),

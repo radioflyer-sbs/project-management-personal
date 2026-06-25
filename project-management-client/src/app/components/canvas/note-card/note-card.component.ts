@@ -6,11 +6,13 @@ import { ComponentBase } from '../../component-base/component-base.component';
 import { CanvasInteractionService, ResizeHandle } from '../../../services/canvas-interaction.service';
 import { Note } from '../../../../model/shared-models/note.model';
 import { Layout } from '../../../../model/shared-models/layout.model';
+import { MarkdownViewComponent } from '../../shared/markdown-view/markdown-view.component';
+import { MarkdownEditorComponent } from '../../shared/markdown-editor/markdown-editor.component';
 
 @Component({
     selector: 'app-note-card',
     standalone: true,
-    imports: [CommonModule, FormsModule],
+    imports: [CommonModule, FormsModule, MarkdownViewComponent, MarkdownEditorComponent],
     templateUrl: './note-card.component.html',
     styleUrl: './note-card.component.scss',
 })
@@ -26,7 +28,6 @@ export class NoteCardComponent extends ComponentBase implements OnInit, OnChange
     @Output() dragStarted$ = new EventEmitter<PointerEvent>();
 
     @ViewChild('titleInput')   private titleInputRef?: ElementRef<HTMLInputElement>;
-    @ViewChild('detailsInput') private detailsInputRef?: ElementRef<HTMLTextAreaElement>;
 
     private readonly interaction = inject(CanvasInteractionService);
     private readonly zone        = inject(NgZone);
@@ -125,12 +126,12 @@ export class NoteCardComponent extends ComponentBase implements OnInit, OnChange
     startEditDetails(e: MouseEvent): void {
         e.stopPropagation();
         this.editingDetails = true;
-        setTimeout(() => this.detailsInputRef?.nativeElement.focus());
     }
 
-    commitDetails(): void {
+    onDetailsCommit(markdown: string): void {
         this.editingDetails = false;
-        this.noteEdited$.emit({ title: this.localTitle, details: this.localDetails });
+        this.localDetails = markdown;
+        this.noteEdited$.emit({ title: this.localTitle, details: markdown });
     }
 
     cancelDetails(): void {

@@ -1,0 +1,86 @@
+:host {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+}
+
+.md-editor {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1 1 auto;
+
+    &__toolbar {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 2px 4px;
+        flex: 0 0 auto;
+    }
+
+    &__tab {
+        appearance: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border: 1px solid rgba(0, 0, 0, 0.18);
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.6);
+        color: var(--color-text-primary, #1a1a2e);
+        font-size: 0.68rem;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+
+        .pi { font-size: 0.62rem; }
+
+        &--active {
+            background: var(--color-brand-primary);
+            border-color: var(--color-brand-primary);
+            color: #ffffff;
+        }
+    }
+
+    &__hint {
+        margin-left: auto;
+        font-size: 0.6rem;
+        opacity: 0.5;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__markup,
+    &__preview {
+        flex: 1 1 auto;
+        min-height: 48px;
+        box-sizing: border-box;
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid rgba(0, 0, 0, 0.2);
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.85);
+        color: var(--color-text-primary, #1a1a2e);
+        font-size: 0.8rem;
+        overflow: auto;
+    }
+
+    &__markup {
+        resize: none;
+        font-family: 'Cascadia Code', 'Consolas', monospace;
+        line-height: 1.4;
+    }
+
+    &__preview {
+        cursor: text;
+        outline: none;
+
+        &:empty::before {
+            content: attr(data-placeholder);
+            opacity: 0.4;
+            pointer-events: none;
+        }
+    }
+}

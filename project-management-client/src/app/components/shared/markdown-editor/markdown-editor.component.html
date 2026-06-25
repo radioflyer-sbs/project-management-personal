@@ -1,0 +1,34 @@
+<div class="md-editor" (mousedown)="$event.stopPropagation()" (focusout)="onFocusOut($event)">
+    <div class="md-editor__toolbar">
+        <button type="button" class="md-editor__tab" [class.md-editor__tab--active]="mode === 'markup'"
+            (click)="setMode('markup')" title="Edit raw markdown">
+            <i class="pi pi-code"></i> Markup
+        </button>
+        <button type="button" class="md-editor__tab" [class.md-editor__tab--active]="mode === 'preview'"
+            (click)="setMode('preview')" title="Edit formatted preview">
+            <i class="pi pi-eye"></i> Preview
+        </button>
+        <span class="md-editor__hint">Esc to cancel · Cmd/Ctrl-click a link to open</span>
+    </div>
+
+    @if (mode === 'markup') {
+        <textarea
+            #markupArea
+            class="md-editor__markup"
+            [(ngModel)]="draft"
+            (keydown.escape)="cancel.emit()"
+            placeholder="Write markdown… links, **bold**, *italic*, lists, # headings"
+        ></textarea>
+    } @else {
+        <div
+            #previewArea
+            class="md-editor__preview md-body"
+            contenteditable="true"
+            (input)="onPreviewInput()"
+            (paste)="onPaste($event)"
+            (click)="onPreviewClick($event)"
+            (keydown.escape)="cancel.emit()"
+            data-placeholder="Type here. Select text and paste a URL to make a link."
+        ></div>
+    }
+</div>

@@ -32,7 +32,7 @@ export function registerNoteTools(server: McpServer): void {
             parentTaskId:    z.string().optional(),
             ancestorTaskIds: z.array(z.string()).optional(),
             title:           z.string(),
-            details:         z.string().optional(),
+            details:         z.string().optional().describe('Markdown — links, bold, italic, lists, headings'),
             backgroundColor: z.string().optional().default('#fdf2c4'),
             x:               z.number().optional().default(100),
             y:               z.number().optional().default(100),
@@ -57,7 +57,7 @@ export function registerNoteTools(server: McpServer): void {
         {
             noteId:          z.string(),
             title:           z.string().optional(),
-            details:         z.string().optional(),
+            details:         z.string().optional().describe('Markdown — links, bold, italic, lists, headings'),
             backgroundColor: z.string().optional(),
         },
         async ({ noteId, ...fields }) => {

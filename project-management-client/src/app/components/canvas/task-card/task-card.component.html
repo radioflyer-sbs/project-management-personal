@@ -38,16 +38,13 @@
 
     <div class="task-card__body-wrap">
         @if (editingDescription) {
-            <textarea
-                #descriptionInput
-                class="task-card__body--editing"
-                [(ngModel)]="localDescription"
-                (blur)="commitDescription()"
-                (keydown.escape)="cancelDescription()"
-                (mousedown)="$event.stopPropagation()"
-            ></textarea>
+            <app-markdown-editor
+                [value]="localDescription"
+                (commit)="onDescriptionCommit($event)"
+                (cancel)="cancelDescription()"
+            />
         } @else {
-            <div class="task-card__body" (dblclick)="startEditDescription($event)">{{ localDescription }}</div>
+            <app-markdown-view class="task-card__body" [value]="localDescription" (dblclick)="startEditDescription($event)" />
             <button class="task-card__body-edit-hint" title="Edit description" (mousedown)="$event.stopPropagation()" (click)="startEditDescription($event)">
                 <i class="pi pi-pencil"></i>
             </button>

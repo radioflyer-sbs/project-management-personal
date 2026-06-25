@@ -59,7 +59,7 @@ Each canvas saves its own pan/zoom (\`viewState\`) so it reopens exactly where t
 The primary work item. It is **both** a card on its parent canvas **and** a canvas host for children.
 
 Fields:
-- \`title\`, \`description\`
+- \`title\` (plain text), \`description\` (**Markdown** — links, bold, italic, lists, headings; rendered on the card, links open in a new tab)
 - \`urgency\` — drives card color (see palette below); one of:
   \`long-term-goal | low | normal | important | urgent | immediate\`
 - \`isComplete\` — completion toggle (purely per-task; completion never cascades to children)
@@ -74,7 +74,7 @@ Fields:
 ### Note
 A sticky-note leaf. Lives on a canvas, cannot contain children.
 
-Fields: \`title\`, \`details\`, \`backgroundColor\` (CSS color for the body; header is always off-yellow), \`layout\`.
+Fields: \`title\` (plain text), \`details\` (**Markdown** — same rendering as a task description), \`backgroundColor\` (CSS color for the body; header is always off-yellow), \`layout\`.
 
 ### Group
 A labeled reflow container on a canvas. Groups are **not canvas hosts** — their members remain items

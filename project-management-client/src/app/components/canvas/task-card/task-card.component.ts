@@ -9,11 +9,13 @@ import { Layout } from '../../../../model/shared-models/layout.model';
 import { TaskCounts } from '../../../../model/shared-models/task-counts.model';
 import { TaskUrgency } from '../../../../model/shared-models/task-urgency.enum';
 import { TaskProjectedChildrenComponent } from './task-projected-children/task-projected-children.component';
+import { MarkdownViewComponent } from '../../shared/markdown-view/markdown-view.component';
+import { MarkdownEditorComponent } from '../../shared/markdown-editor/markdown-editor.component';
 
 @Component({
     selector: 'app-task-card',
     standalone: true,
-    imports: [CommonModule, FormsModule, TaskProjectedChildrenComponent],
+    imports: [CommonModule, FormsModule, TaskProjectedChildrenComponent, MarkdownViewComponent, MarkdownEditorComponent],
     templateUrl: './task-card.component.html',
     styleUrl: './task-card.component.scss',
 })
@@ -37,7 +39,6 @@ export class TaskCardComponent extends ComponentBase implements OnInit, OnChange
     @Output() contextMenu$            = new EventEmitter<MouseEvent>();
 
     @ViewChild('titleInput')       private titleInputRef?: ElementRef<HTMLInputElement>;
-    @ViewChild('descriptionInput') private descriptionInputRef?: ElementRef<HTMLTextAreaElement>;
 
     private readonly interaction = inject(CanvasInteractionService);
     private readonly zone        = inject(NgZone);
@@ -158,12 +159,12 @@ export class TaskCardComponent extends ComponentBase implements OnInit, OnChange
     startEditDescription(e: MouseEvent): void {
         e.stopPropagation();
         this.editingDescription = true;
-        setTimeout(() => this.descriptionInputRef?.nativeElement.focus());
     }
 
-    commitDescription(): void {
+    onDescriptionCommit(markdown: string): void {
         this.editingDescription = false;
-        this.taskEdited$.emit({ title: this.localTitle, description: this.localDescription });
+        this.localDescription = markdown;
+        this.taskEdited$.emit({ title: this.localTitle, description: markdown });
     }
 
     cancelDescription(): void {

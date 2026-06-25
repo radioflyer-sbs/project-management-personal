@@ -31,16 +31,13 @@
 
     <div class="note-card__body-wrap" [ngStyle]="bodyStyle">
         @if (editingDetails) {
-            <textarea
-                #detailsInput
-                class="note-card__body--editing"
-                [(ngModel)]="localDetails"
-                (blur)="commitDetails()"
-                (keydown.escape)="cancelDetails()"
-                (mousedown)="$event.stopPropagation()"
-            ></textarea>
+            <app-markdown-editor
+                [value]="localDetails"
+                (commit)="onDetailsCommit($event)"
+                (cancel)="cancelDetails()"
+            />
         } @else {
-            <div class="note-card__body" (dblclick)="startEditDetails($event)">{{ localDetails }}</div>
+            <app-markdown-view class="note-card__body" [value]="localDetails" (dblclick)="startEditDetails($event)" />
             <button class="note-card__body-edit-hint" title="Edit details" (click)="startEditDetails($event)">
                 <i class="pi pi-pencil"></i>
             </button>
