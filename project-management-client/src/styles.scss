@@ -82,6 +82,11 @@ html, body {
 
     ul, ol { margin: 0 0 0.4em; padding-left: 1.3em; }
     li { margin: 0.05em 0; }
+    // A "loose" markdown list (blank lines between items) wraps each item's text in a <p>,
+    // whose margin shows as an extra blank line between bullets. Strip that so bullets sit
+    // tight; keep spacing only between multiple paragraphs within a single item.
+    li > p { margin: 0; }
+    li > p + p { margin-top: 0.35em; }
 
     code {
         font-family: 'Cascadia Code', 'Consolas', monospace;
