@@ -33,7 +33,8 @@
         flex: 1 1 auto;
         min-height: 0;
         overflow-y: auto;
-        // Hide the scrollbar — the fade + chevron signal "more"; wheel still scrolls.
+        // Hide the scrollbar — the fade + chevron signal "more". The wheel is left to
+        // bubble to the canvas (zoom); resize/drill-in to see clipped items.
         scrollbar-width: none;
         &::-webkit-scrollbar { width: 0; height: 0; }
     }
