@@ -25,6 +25,7 @@ src/
 ├── app/
 │   ├── components/component-base/   — ComponentBase (extend in every component)
 │   ├── components/<feature>/        — Feature components go here
+│   ├── components/shared/           — Reusable bits: markdown-view, markdown-editor
 │   ├── services/                    — Domain services (state + orchestration)
 │   │   └── api-clients/             — HTTP clients (ApiClientBase, ClientApiService)
 │   └── routing/                     — Route guards
@@ -50,6 +51,16 @@ src/
 The `undefined`-over-`null` rule above is not yet applied everywhere — handle these when touching the relevant code:
 - **Reparent** uses `newParentTaskId: string | null` across the API clients, `CanvasDataService`, `CanvasInteractionService`, and `CanvasHostComponent` (`null` = project root). Move the domain to `undefined` (root = `undefined`) and convert to `null` only at the API boundary.
 - Pre-existing services still expose `null` (e.g. `SelectionService` `BehaviorSubject<… | null>`, `NavigationService` `projectId$`). Migrate opportunistically; not a dedicated sweep.
+
+## Feature conventions
+- **Markdown bodies** (Task `description`, Note `details`): render/edit only through `MarkdownService`
+  (marked → DOMPurify) and the shared `markdown-view` / `markdown-editor` components — never hand-roll
+  markdown→HTML or bind raw HTML. Global `.md-body` styles in `styles.scss` style the rendered output.
+- **Due-date countdown**: subscribe to `ClockService.now$` (one shared tick) and format with the pure
+  `due-date.util.ts` — don't spin up per-component intervals or duplicate the days/`HH:MM`/overnight logic.
+- **Reparenting**: the drop-to-child gesture flows through `CanvasInteractionService` (drag-state +
+  drop-target + `reparentDrop$`); the actual move goes through `CanvasDataService.reparentItems(...)` →
+  the API clients' `reparent(...)`. Item layout is never changed by a reparent (position is preserved).
 
 ## Shared models rule
 `src/model/shared-models/` is an **identical copy** of the server's `src/model/shared-models/`.

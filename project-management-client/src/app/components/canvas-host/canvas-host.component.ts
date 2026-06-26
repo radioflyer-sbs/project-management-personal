@@ -848,11 +848,11 @@ export class CanvasHostComponent extends ComponentBase implements OnInit {
         });
     }
 
-    onTaskContextMenu(task: Task, e: MouseEvent): void {
+    onCardContextMenu(item: SelectableItem, e: MouseEvent): void {
         this.contextMenuVisible = false;
-        // Right-click selects the task unless it's already part of a multi-selection.
-        if (!this.selection.isSelected(task._id as string)) {
-            this.selection.select({ type: 'task', item: task });
+        // Right-click selects the item unless it's already part of a multi-selection.
+        if (!this.selection.isSelected(item.item._id as string)) {
+            this.selection.select(item);
         }
         // Promote moves items to the parent's parent — only meaningful inside a task workspace.
         if (!this.hostTask) { this.cardMenuVisible = false; return; }

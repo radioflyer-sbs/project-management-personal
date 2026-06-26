@@ -211,12 +211,15 @@ export interface Task extends DbEntity {
 
     /** Bold, prominent title shown on the card. */
     title: string;
-    /** Body description; truncated visually if it overflows the card. */
+    /** Body description. **Markdown** (links, bold/italic, lists, headings); rendered on the
+     *  card and editable with a markup/preview toggle (§8.11). Visually clipped if it overflows. */
     description: string;
     /** Drives the card's background/border color (see §7.2). */
     urgency: TaskUrgency;
     /** Completion flag. */
     isComplete: boolean;
+    /** Optional due date/time. When set, the card shows a live countdown (§8.12). */
+    dueDate?: Date;
 
     /** Position/size of this task as a card on its parent canvas. */
     layout: Layout;
@@ -256,7 +259,7 @@ export interface Note extends DbEntity {
 
     /** Title shown in the always off-yellow header. */
     title: string;
-    /** Body content, arbitrary length. */
+    /** Body content. **Markdown**, rendered/edited exactly like a Task description (§8.11). */
     details: string;
     /** User-chosen body background color (CSS color string). Header stays off-yellow. */
     backgroundColor: string;
@@ -446,9 +449,12 @@ Both render as a resizable, positionable rectangle resembling an MS-Windows wind
 - **Header:** bold title. For a Task, the header tints with the urgency hue; for a Note, the header is
   always **off-yellow**.
 - **Divider:** a horizontal border between header and body.
-- **Body:** description (Task) or details (Note). Content is **truncated** if it does not fit; full
-  content is available via selection in the Details Pane.
+- **Body:** description (Task) or details (Note), rendered from **Markdown** (§8.11). Content is
+  clipped if it does not fit; full content is available via selection in the Details Pane.
 - **Border:** same hue as the background, one step darker.
+- **Status bar (Task):** a bottom row of inline controls — completion toggle, urgency picker,
+  due-date control + live countdown (§8.12), project-to-parent toggle (§8.9), and sub-task / note
+  counts.
 - **Resize/move:** like a desktop window — drag the body/header to move, drag edges/corners to resize,
   down to the minimums in §5.8.
 
@@ -593,6 +599,54 @@ and so do not offer the toggle.)
   list is the element that shrinks when the card is short: the list scrolls (scrollbar hidden) and shows
   a bottom fade + chevron hint when it is clipping. The status bar stays pinned to the bottom (D-IMPL-28).
 
+### 8.10 Moving items between workspaces (reparent)
+
+A *workspace* is the set of items sharing one `parentTaskId` (or none — the project root). Items can be
+moved between workspaces, changing which task owns them. **Position is preserved** (**P1**): the moved
+item keeps its `Layout`, so it lands at the same coordinates in the destination. Two gestures exist
+(D-IMPL-30):
+
+- **Promote** (move out one level): a per-card right-click context menu promotes the selected items to
+  the **parent's parent** (or to the project root when the current parent is itself a root task). Only
+  offered inside a task workspace.
+- **Make child** (drop onto a task): while dragging, every *other* task card reveals a **drop zone**;
+  releasing over it makes the dragged item(s) children of that task. A confirmation (**P6**-style, though
+  non-destructive) precedes the move.
+
+Both operate on the **whole selection** (§8.7); a selected group carries its members, which are not moved
+twice. Reparenting is a server operation (`ReparentService`, §12.2): it rewrites the moved item's
+`parentTaskId`/`ancestorTaskIds`, **rewrites the materialized path of every descendant** (tasks, notes,
+and dashboards carry `ancestorTaskIds`), carries a group's member tasks along, clears the moved task's
+group membership, and schedules a projection recompute (§6.4) for both the old and new parents. Moving a
+task into its own subtree is rejected.
+
+### 8.11 Markdown bodies
+
+A Task's `description` and a Note's `details` are **Markdown** — links, bold/italic, lists, headings.
+They render to sanitized HTML on the card (and in the Details Pane preview), and links open in a new tab
+(plain click in the read-only card view). Editing toggles between a **Markup** view (raw-markdown
+textarea) and an editable **Preview** (a `contenteditable` surface). In Preview, selecting text and
+pasting a linkable URL (http/https, or a bare domain/`www.` auto-prefixed to https) turns the selection
+into a link; `Cmd`/`Ctrl`-click opens a link there (plain click is reserved for placing the caret).
+Markdown is the source of truth: Preview edits are serialized back to Markdown; the round-trip preserves
+content but may normalize formatting (D-IMPL-31).
+
+### 8.12 Due dates & countdown
+
+A Task may carry an optional `dueDate`. When set, the card's status bar shows a **live countdown**,
+refreshed by a shared clock tick (one timer multicast to all cards):
+
+- A future calendar date → a **day count** (`Nd`).
+- Today's calendar date → **`HH:MM`** remaining (styled with extra urgency).
+- **Overnight exception:** if the due time is before **05:00** *and* today is exactly the calendar day
+  before the due date, show `HH:MM` instead of a day count — early-hours items read as imminent rather
+  than "a day away".
+- **Overdue** (now ≥ due) → bottoms out at `00:00`, no special styling.
+
+The date/time is set from both a calendar control on the card (a popover date-time picker, keyboard- and
+mouse-enterable) and a field in the Details Pane; either can clear it. The display logic is a pure,
+tested function (D-IMPL-32).
+
 ---
 
 ## 9. Styling & Design Tokens (P8)
@@ -669,7 +723,7 @@ every level (**P2**).
 | Service                    | Responsibility                                                                                                      |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `ViewportService`          | Holds live pan/zoom; converts screen ↔ canvas space; restores/persists `viewState`. One instance per active canvas. |
-| `CanvasInteractionService` | Pointer handling for move/resize/pan/zoom gestures, including multi-item drag and group drag (the group plus its contained items); emits intent, delegates persistence to the canvas data service. |
+| `CanvasInteractionService` | Pointer handling for move/resize/pan/zoom gestures, including multi-item drag and group drag (the group plus its contained items); emits intent, delegates persistence to the canvas data service. Also broadcasts drag-active state + the dragged ids, tracks the hovered drop-target task, and emits a reparent-drop signal when a drag ends over a task's drop zone (§8.10). |
 | `SelectionService`         | The current selection **set** (tasks, notes, groups; §8.7); drives multi-drag/multi-delete and the Details Pane. Global singleton (D-IMPL-03).                                       |
 
 ### 11.2 Data / state services
@@ -677,18 +731,30 @@ every level (**P2**).
 | Service              | Responsibility                                                                                                                                                           |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `ProjectsService`    | List/create/update/delete projects; exposes `projectListing$` with a reload subject.                                                                                     |
-| `CanvasDataService`  | For the current host, loads its tasks (via the *with-projections* endpoint, so each task carries its `projectedChildren`) + notes + groups; exposes them as observables; handles add/move/resize/complete/delete, all group operations (enter/exit/reorder/move-between, the reflow engine), and projected-child completion, by delegating to API clients. |
+| `CanvasDataService`  | For the current host, loads its tasks (via the *with-projections* endpoint, so each task carries its `projectedChildren`) + notes + groups; exposes them as observables; handles add/move/resize/complete/delete, all group operations (enter/exit/reorder/move-between, the reflow engine), projected-child completion, **due-date set/clear**, and **reparenting the selection** (delegating to the reparent endpoints, then reloading), by delegating to API clients. |
 | `NavigationService`  | Parses the URL task chain, builds the breadcrumb, exposes navigation helpers (drill in, go to parent, jump to crumb).                                                    |
 | `DeletionService`    | Wraps PrimeNG confirmation + the delete API call; the single entry point for all destructive actions (**P6**). Covers projects, tasks, notes, groups, and dashboards. Each method takes `(id, label, onSuccess)` — it shows the dialog, calls the API on accept, clears selection, then fires `onSuccess`. The caller's `onSuccess` removes the item from local state only (no second API call). Never call `window.confirm` or any other ad-hoc confirmation for a destructive action — always add a method here. |
 | `DetailsPaneService` | Tracks the edit buffer + dirty state for the selected entity; Accept persists, Cancel reverts.                                                                           |
 
+Two app-wide utility singletons (`providedIn: 'root'`) support the features above: **`MarkdownService`**
+renders Markdown → sanitized HTML, serializes edited HTML back to Markdown, and decides what counts as a
+linkable URL (§8.11); **`ClockService`** exposes one multicast "now" tick that drives every due-date
+countdown (§8.12).
+
+> **Frontend null policy.** Use `undefined`, not `null`, throughout the client domain (models, state,
+> service signatures, `EventEmitter` payloads). `null` is allowed only at the HTTP boundary (a partial
+> update must send an explicit value to clear a field, since JSON drops `undefined`) or when coercing a
+> value a 3rd-party control hands back. See `project-management-client/CLAUDE.md`.
+
 ### 11.3 API clients
 
 Under `src/app/services/api-clients/`, extending `ApiClientBase`:
-- Split into focused clients: `ProjectApiClient`, `TaskApiClient`, `NoteApiClient`, `GroupApiClient`
-  (D-IMPL-11). `ClientApiService` is a thin re-export shim.
+- Split into focused clients: `ProjectApiClient`, `TaskApiClient`, `NoteApiClient`, `GroupApiClient`,
+  `DashboardApiClient` (D-IMPL-11). `ClientApiService` is a thin re-export shim.
 - `TaskApiClient` includes the *with-projections* canvas loads (`by-project/:id/with-projections`,
   `by-parent/:id/with-projections`) used to embed `projectedChildren` (§6.4).
+- Each item client exposes a `reparent(id, newParentTaskId)` method hitting the `…/:id/reparent`
+  endpoint (§8.10, §12.3).
 - One method per endpoint, all returning `Observable`s, typed with shared-models.
 - (Auth headers are scaffolded but unused — single-user app, no login.)
 
@@ -702,12 +768,16 @@ components/
 │                                    owns the per-canvas services, renders items + the details pane
 ├── canvas/
 │   ├── task-card/                — task card (urgency color/picker, completion toggle, drill-in,
-│   │   │                            project-to-parent toggle, inline title/description editing)
+│   │   │                            project-to-parent toggle, inline title editing, due-date picker
+│   │   │                            + countdown, drop zone for make-child)
 │   │   └── task-projected-children/ — the "Sub-task progress" list on a parent card (§8.9)
 │   ├── note-card/                — note specialization (off-yellow header, body color)
 │   ├── group-card/               — group container card (title bar, layout-mode controls, reflow)
-│   └── canvas-context-menu/      — custom positioned right-click menu (D-IMPL-01)
-└── details-pane/                 — selection-driven editor (project | task | note)
+│   └── canvas-context-menu/      — custom positioned right-click menu (D-IMPL-01); reused per-card for Promote (§8.10)
+├── shared/
+│   ├── markdown-view/            — read-only Markdown renderer for card bodies (§8.11)
+│   └── markdown-editor/          — markup/preview Markdown editor with paste-to-link (§8.11)
+└── details-pane/                 — selection-driven editor (project | task | note | dashboard)
 ```
 
 ---
@@ -727,6 +797,11 @@ Zod validation, global error handler, `DbCollectionNames`).
 ### 12.2 Domain services
 
 - `CascadeDeleteService` — owns the multi-step subtree deletion (§6.3) across collections.
+- `ReparentService` — moves an item to a new parent task (or the project root): rewrites the item's
+  `parentTaskId`/`ancestorTaskIds`, rewrites every descendant's materialized path in one
+  aggregation-pipeline update per collection (tasks, notes, dashboards), carries a group's member tasks,
+  and schedules a projection recompute for the old and new parents (§8.10). Rejects moving a task into its
+  own subtree.
 - `ProjectionOrderService` — recomputes children's `projectionOrder` from the parent canvas layout
   (§8.9). It is triggered on write by the task/group routers and **coalesces** a transition's writes per
   parent task via a trailing timer, so the graph/tree ordering work runs at most once per layout
@@ -737,8 +812,10 @@ Zod validation, global error handler, `DbCollectionNames`).
 ### 12.3 Routes
 
 Route factories per concern: `createProjectRouter`, `createTaskRouter`, `createNoteRouter`,
-`createGroupRouter`. Validate incoming bodies with Zod (create/update payloads). Handlers `try/catch`,
-return early, defer unexpected errors to the global handler. No auth middleware on routes (single-user).
+`createGroupRouter`, `createDashboardRouter`. Validate incoming bodies with Zod (create/update payloads).
+Handlers `try/catch`, return early, defer unexpected errors to the global handler. No auth middleware on
+routes (single-user). Each item router exposes `PUT /:id/reparent` (body `{ newParentTaskId: string | null }`,
+`null` = project root), delegating to `ReparentService` (§8.10, §12.2).
 The task and group routers call `ProjectionOrderService.scheduleRecompute(parentTaskId)` after writes that
 can change reading order (task layout/grouping/urgency, group layout/membership/direction, and
 create/delete) — never on view-state-only updates (§6.4, §8.9).
@@ -770,6 +847,9 @@ so the reasoning survives.
 - **Grouping** — Group items with vertical/horizontal/wrap reflow (§8.8); the first "grouping strategy."
 - **Projection to parent** — projected children with layout-derived reading order (§8.9, §6.4).
 - **Inline editing** on cards (D6 update) and **inline completion toggles**.
+- **Reparenting** — promote to the parent's parent + drop-onto-task to make a child, position-preserving (§8.10).
+- **Markdown bodies** — Task descriptions and Note details, with a markup/preview editor and paste-to-link (§8.11).
+- **Due dates** — optional per-task `dueDate` with a live card countdown (§8.12).
 
 Still open / not yet specified:
 
@@ -778,6 +858,10 @@ Still open / not yet specified:
 - Export / import / backup of a project.
 - Fuller keyboard shortcuts (today: `Delete` removes the selection; `Shift`/`Ctrl` modify multi-select).
 - Additional grouping strategies beyond the Group container (**P7** anticipates more).
+
+> Note: the **Dashboard** and **DataDefinition** entities (metric widgets) also exist in the codebase and
+> MCP surface but are not yet written into §5–§6 of this spec. They carry the same canvas-scoping and
+> (for dashboards) `ancestorTaskIds` as other items. Documenting them here is outstanding.
 
 ---
 

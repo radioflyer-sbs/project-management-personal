@@ -48,6 +48,13 @@ src/
 - Every route handler `try`/`catch`es and returns appropriate status codes.
 - Return early with `res.status(...).json(...); return;` — never `return res.status(...)`.
 - Collection names come from `DbCollectionNames` constant — never use inline strings.
+- Multi-collection / multi-step operations live in a **dedicated domain service**, never inline in a route
+  handler: `CascadeDeleteService` (subtree deletes) and `ReparentService` (move an item to a new parent —
+  rewrites the item's `ancestorTaskIds` and every descendant's materialized path, carries a group's
+  members, schedules projection recompute). Each item router exposes `PUT /:id/reparent`
+  (`{ newParentTaskId: string | null }`, `null` = project root).
+- Partial-update PUTs clear an optional field when the body sends `null` for it (e.g. `dueDate`, `groupId`)
+  — mirror the existing `delete merged.<field>` pattern in the task router.
 
 ## Config
 `app-config.json` at project root (gitignored). See `APP-CONFIG.md` for schema.

@@ -1,4 +1,4 @@
-<div class="group-card" [class.group-card--selected]="selected" [class.group-card--dragging]="amBeingDragged" [ngStyle]="cardStyle">
+<div class="group-card" [class.group-card--selected]="selected" [class.group-card--dragging]="amBeingDragged" [ngStyle]="cardStyle" (contextmenu)="onContextMenu($event)">
 
     <div class="group-card__title-bar" (mousedown)="onTitleBarMousedown($event)">
         <i class="pi pi-th-large group-card__icon"></i>

@@ -258,6 +258,74 @@ The service shows the PrimeNG confirmation dialog, calls the entity's API client
 
 ---
 
+# Later sessions — reparent, markdown bodies, due dates (2026-06)
+
+> Three more feature areas plus a frontend convention. Canonical design is reflected in
+> `application-design.md` §8.10–8.12, §11–12, and §14. A minor UX change also landed: the
+> projected-children list no longer swallows the mouse wheel (it bubbles to canvas zoom) — the small
+> list is no longer wheel-scrollable; the fade/chevron hint and resize/drill-in reveal clipped items.
+
+## D-IMPL-30 — Reparenting via a dedicated ReparentService; position-preserving
+
+**Decision:** Items move between workspaces by changing their owning parent task. Two UI gestures:
+**promote** (per-card right-click → move to the parent's parent, or project root) and **make child**
+(during a drag, every other task card shows a drop zone; releasing over it, after a confirmation, makes
+the dragged item(s) children of that task). Both act on the whole selection; a selected group carries its
+members (not double-moved). A server `ReparentService` exposes `PUT /:id/reparent`
+(`{ newParentTaskId: string | null }`) on tasks/notes/groups/dashboards: it rewrites the item's
+`parentTaskId`/`ancestorTaskIds`, rewrites every descendant's materialized path (one aggregation-pipeline
+update per collection — tasks, notes, dashboards), carries a group's member tasks, clears the moved task's
+group membership, and schedules a projection recompute for the old + new parents. The moved item keeps its
+`Layout` (**P1**); moving a task into its own subtree is rejected.
+
+**Why:** Re-parenting was always anticipated by the materialized path (D3) but never exposed. A single
+service keeps the multi-collection path rewrite in one place (cf. `CascadeDeleteService`), and preserving
+position honors spatial memory. The drop zone is a deliberate, small target so casual card overlap during
+a normal move doesn't trigger an accidental reparent.
+
+## D-IMPL-31 — Markdown card bodies (marked + turndown + DOMPurify), editable preview
+
+**Decision:** Task `description` and Note `details` are Markdown. Rendering is `marked` → `DOMPurify`
+(sanitize) → bound HTML; serialization back from the editable preview uses `turndown`. A shared
+`markdown-view` (read-only) and `markdown-editor` (markup/preview toggle) live under `components/shared/`,
+backed by a `providedIn: 'root'` `MarkdownService`. The Preview is a `contenteditable` surface; selecting
+text and pasting a linkable URL (http/https or bare domain/`www.`, auto-prefixed) wraps the selection in a
+link. Links open in a new tab on plain click in the read-only view; in the editable preview, `Cmd`/`Ctrl`-click
+opens (plain click places the caret). Markdown is the source of truth.
+
+**Why:** The user wanted formatted bodies with links and a markup/preview toggle. Lightweight libraries
+(over a full WYSIWYG framework) keep the dependency footprint small; the trade-off is that the
+HTML→Markdown round-trip preserves content but may normalize formatting (bullet char, `*`/`_`). Storage
+stayed a plain string, so this was client-only — no schema change.
+
+## D-IMPL-32 — Due dates with a live, shared-clock countdown
+
+**Decision:** Tasks gained an optional `dueDate`. The card status bar shows a countdown driven by a single
+multicast `ClockService` tick (30 s): a day count (`Nd`) for a future calendar date; `HH:MM` for today;
+`HH:MM` as an **overnight exception** when the due time is before 05:00 and today is exactly the day before
+(treats early-hours items as imminent); `00:00` when overdue (no special styling). The switch/format logic
+is a pure, tested function (`due-date.util.ts`). The date is set from a card popover picker (PrimeNG
+DatePicker in input+overlay mode, so date and time are keyboard-enterable) and a Details Pane field; either
+clears it. Clearing sends `null` only at the HTTP boundary (server unsets the field).
+
+**Why:** Spatial cards benefit from an at-a-glance deadline. The shared clock avoids N per-card intervals.
+The before-05:00 rule was the user's explicit preference for after-hours work, where "tomorrow at 1am" should
+read as a live countdown, not "1 day".
+
+## D-IMPL-33 — Frontend uses `undefined`, not `null`
+
+**Decision:** Client code (models, component state, service signatures, `EventEmitter` payloads) uses
+`undefined` for absence, not `null`. `null` is permitted only where unavoidable: the HTTP request body for a
+partial update that must signal "clear this field" (JSON drops `undefined`) — confined to the API-client
+layer with a comment — and values a 3rd-party control returns (e.g. PrimeNG `showClear`), coerced to
+`undefined` at the binding. Recorded in `project-management-client/CLAUDE.md`; older code (e.g.
+`SelectionService`, `NavigationService`) and the reparent `newParentTaskId` are migrated opportunistically.
+
+**Why:** One consistent "absence" value avoids mixed `?? `/`=== null`/optional-chaining guards and the bugs
+they cause.
+
+---
+
 ## Open Questions for User Review
 
 1. **Resize minimum enforcement**: When a card is resized below `MIN_ITEM_WIDTH`/`MIN_ITEM_HEIGHT`, the resize is clamped. Should the card "snap back" visually (yes, per spec) or also show an error? Currently: silently clamps.

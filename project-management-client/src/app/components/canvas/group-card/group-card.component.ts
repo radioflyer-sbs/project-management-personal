@@ -26,6 +26,7 @@ export class GroupCardComponent extends ComponentBase implements OnInit, OnChang
     @Output() titleChanged$        = new EventEmitter<string>();
     @Output() layoutConfigChanged$ = new EventEmitter<{ direction: 'vertical' | 'horizontal'; wrap: boolean }>();
     @Output() dragStarted$         = new EventEmitter<PointerEvent>();
+    @Output() contextMenu$         = new EventEmitter<MouseEvent>();
 
     private readonly interaction = inject(CanvasInteractionService);
     private readonly zone        = inject(NgZone);
@@ -106,6 +107,12 @@ export class GroupCardComponent extends ComponentBase implements OnInit, OnChang
         e.stopPropagation();
         this.selected$.emit(this.group);
         this.dragStarted$.emit(e as unknown as PointerEvent);
+    }
+
+    onContextMenu(e: MouseEvent): void {
+        e.preventDefault();
+        e.stopPropagation();
+        this.contextMenu$.emit(e);
     }
 
     onTitleDblclick(e: MouseEvent): void {

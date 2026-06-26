@@ -81,6 +81,7 @@
                             (titleChanged$)="onGroupTitleChanged(group, $event)"
                             (layoutConfigChanged$)="onGroupLayoutConfigChanged(group, $event)"
                             (dragStarted$)="onGroupDragStarted(group, $event)"
+                            (contextMenu$)="onCardContextMenu({ type: 'group', item: group }, $event)"
                         />
                     }
                     @for (task of tasks; track task._id) {
@@ -97,7 +98,7 @@
                             (dueDateChanged$)="onTaskDueDateChanged(task, $event)"
                             (childCompletionChanged$)="onProjectedChildCompletionChanged(task, $event)"
                             (dragStarted$)="onTaskDragStarted(task, $event)"
-                            (contextMenu$)="onTaskContextMenu(task, $event)"
+                            (contextMenu$)="onCardContextMenu({ type: 'task', item: task }, $event)"
                         />
                     }
                     @for (note of notes; track note._id) {
@@ -107,6 +108,7 @@
                             (selected$)="onNoteSelected(note)"
                             (noteEdited$)="onNoteEdited(note, $event)"
                             (dragStarted$)="onNoteDragStarted(note, $event)"
+                            (contextMenu$)="onCardContextMenu({ type: 'note', item: note }, $event)"
                         />
                     }
                     @for (db of dashboards; track db._id) {

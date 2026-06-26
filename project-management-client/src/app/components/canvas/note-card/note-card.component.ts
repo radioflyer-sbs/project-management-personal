@@ -26,6 +26,7 @@ export class NoteCardComponent extends ComponentBase implements OnInit, OnChange
     @Output() selected$    = new EventEmitter<Note>();
     @Output() noteEdited$  = new EventEmitter<{ title: string; details: string }>();
     @Output() dragStarted$ = new EventEmitter<PointerEvent>();
+    @Output() contextMenu$ = new EventEmitter<MouseEvent>();
 
     @ViewChild('titleInput')   private titleInputRef?: ElementRef<HTMLInputElement>;
 
@@ -176,6 +177,12 @@ export class NoteCardComponent extends ComponentBase implements OnInit, OnChange
 
     onClick(e: MouseEvent): void {
         e.stopPropagation();
+    }
+
+    onContextMenu(e: MouseEvent): void {
+        e.preventDefault();
+        e.stopPropagation();
+        this.contextMenu$.emit(e);
     }
 
     readonly resizeHandles: ResizeHandle[] = ['nw','n','ne','e','se','s','sw','w'];

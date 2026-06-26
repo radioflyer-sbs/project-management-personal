@@ -5,6 +5,7 @@
     [ngStyle]="cardStyle"
     (mousedown)="onMousedown($event)"
     (click)="onClick($event)"
+    (contextmenu)="onContextMenu($event)"
 >
     <div class="note-card__header">
         <i class="pi pi-file-edit note-card__icon"></i>

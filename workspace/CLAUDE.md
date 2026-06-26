@@ -44,12 +44,22 @@ Section 13 ("Resolved Decisions", D1–D7) records the confirmed architectural f
 §14 lists what's still open.
 
 Feature areas added after the first pass (see the design spec sections noted, and the matching
-`D-IMPL-19…28` in `implementation-decisions.md`):
+`D-IMPL-19…33` in `implementation-decisions.md`):
 - **Groups** — container items with vertical/horizontal/wrap reflow (`groups` collection; §5.9, §8.8).
 - **Multi-select / multi-drag / multi-delete** (§8.7).
 - **Projection to parent** — a parent card lists its opted-in direct children, ordered by a
   layout-derived reading order computed server-side (§5.10, §6.4, §8.9).
 - **Inline card editing** and **inline completion toggles** (§7.3; updates decision D6).
+- **Reparenting** — promote a selection to the parent's parent, or drop items onto a task's drop zone to
+  make them children; position-preserving, via a server `ReparentService` (§8.10).
+- **Markdown bodies** — Task descriptions and Note details are Markdown with a markup/preview editor and
+  paste-to-link (§8.11).
+- **Due dates** — optional per-task `dueDate` with a live card countdown (§8.12).
+- **Frontend null policy** — prefer `undefined` over `null` in the client; see the frontend CLAUDE.md.
+
+> Beyond what the spec covers, the codebase also has **Dashboards** and **DataDefinitions** (metric
+> widgets); these are documented in `project-management-mcp/` (tools + `pm://context`) but not yet in
+> `application-design.md` §5–§6.
 
 ## MCP server maintenance
 
